@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}
+{{ subspace.title }}-Discux!
+{% endblock title %}
+
+{% block content %}
+<div class="body-content">
+    <div class="detail-head">
+        <div>
+            <h3>{{ subspace.title }}</h3>
+        	  <a class="right new-article" href="/article/create?subspace_id={{subspace.id}}">{{"Post Article"}}</a>
+        </div>
+        <p>
+            <small>{{ subspace.description }}</small>
+        </p>
+    </div>
+
+    <div class="section-body article-list">
+        {% if posts.is_empty() %}
+	    <p class="">{{"No Content"}}</p>
+        {% else %}
+        <ul>
+            {% for post in posts %}
+            <li>
+                <span class="left">
+                    <a href="/article?id={{ post.id }}" class="title left">{{ post.title }}</a>
+                    <div style="clear:both;"></div>
+                </span>
+                <span class="right info">
+                    <span class="author">{{ post.author_nickname }}</span> 
+                    <span class="timestamp">{{ post.created_time|date }}</span>
+                    <a class="delete" href="/article/delete?id={{post.id}}">{{"Delete"}}</a>
+                    <a class="edit" href="/article/edit?id={{post.id}}">{{"Edit"}}</a>
+                </span>
+                <div style="clear:both;"></div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% endif %}
+    </div>
+</div>
+{% endblock content %}
