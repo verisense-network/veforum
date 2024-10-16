@@ -7,6 +7,13 @@ pub struct User {
     pub name: String,
 }
 
+#[derive(Debug, Decode, Encode)]
+pub enum Method {
+    Create,
+    Update,
+    Delete,
+}
+
 #[post]
 pub fn add_user(user: User) -> Result<(), String> {
     let max_id_key = [&b"user:"[..], &u64::MAX.to_be_bytes()[..]].concat();
@@ -28,7 +35,7 @@ pub fn get_user(id: u64) -> Result<Option<User>, String> {
     Ok(user)
 }
 
-fn add_to_common_key(method: String, model_ins: String) -> Result<(), String> {
+fn add_to_common_key(method: Method, model_ins: String) -> Result<(), String> {
     let reqnum_key = b"_reqnum";
     let res = storage::get(&reqnum_key).map_err(|e| e.to_string())?;
     if let Some(res) = res {
@@ -38,7 +45,7 @@ fn add_to_common_key(method: String, model_ins: String) -> Result<(), String> {
         let key = b"_commonkey";
         let res = storage::get(&key).map_err(|e| e.to_string())?;
         if let Some(res) = res {
-            let mut avec = Vec::<(u64, String, String)>::decode(&mut &res[..]).unwrap();
+            let mut avec = Vec::<(u64, Method, String)>::decode(&mut &res[..]).unwrap();
             avec.push((reqnum, method, model_ins));
             _ = storage::put(&key, avec.encode()).map_err(|e| e.to_string());
         } else {
@@ -62,11 +69,11 @@ fn add_to_common_key(method: String, model_ins: String) -> Result<(), String> {
     Ok(())
 }
 
-fn get_from_common_key(sentinel: u64) -> Result<(), String> {
+pub fn get_from_common_key(sentinel: u64) -> Result<Vec<(u64, Method, String)>, String> {
     let key = b"_commonkey";
     let res = storage::get(&key).map_err(|e| e.to_string())?;
     if let Some(res) = res {
-        let mut avec = Vec::<(u64, String, String)>::decode(&mut &res[..]).unwrap();
+        let mut avec = Vec::<(u64, Method, String)>::decode(&mut &res[..]).unwrap();
         let mut index = 0;
         for (i, &(reqnum, _, _)) in avec.iter().enumerate() {
             if reqnum > sentinel {
@@ -78,7 +85,8 @@ fn get_from_common_key(sentinel: u64) -> Result<(), String> {
         let last_part = avec.split_off(index);
         let key = b"_commonkey";
         _ = storage::put(&key, last_part.encode()).map_err(|e| e.to_string());
+        return Ok(last_part);
     }
 
-    Ok(())
+    Ok(vec![])
 }
