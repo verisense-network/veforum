@@ -2,6 +2,6 @@
 members = [
   "hello-avs"
 , "surrogate"]
+resolver = "2"
 
-workspace.resolver = "2"
 

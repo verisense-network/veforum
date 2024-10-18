@@ -109,13 +109,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let http_client = HttpClientBuilder::default().build("http://localhost:9944")?;
 
     let avs_id = "5FsXfPrUDqq6abYccExCTUxyzjYaaYTr5utLx2wwdBv1m8R8";
+    let mut sentinel = 0;
     loop {
-        let sentinel = 0;
         let params = rpc_params![avs_id, "get_from_common_key", sentinel.encode()];
         let result: Vec<(u64, Method, Vec<u8>)> =
             http_client.request("nucleus_get", params).await?;
 
-        for (_, method, key) in result {
+        for (reqnum, method, key) in result {
             match slice_to_array(&key[..5]).unwrap() {
                 PREFIX_SUBSPACE_KEY => {
                     let id = vec_to_u64(&key[5..]);
@@ -215,6 +215,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 _ => {}
             }
+            sentinel = reqnum;
         }
 
         // // Decode the SCALE-encoded result
