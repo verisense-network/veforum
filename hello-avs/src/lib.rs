@@ -1,4 +1,6 @@
 use parity_scale_codec::{Decode, Encode};
+use sp_core::crypto::{Pair, Ss58Codec};
+use sp_core::sr25519::{Public, Signature};
 use vrs_core_sdk::{get, post, storage};
 
 #[derive(Debug, Decode, Encode)]
@@ -95,7 +97,16 @@ const COMMON_KEY: &[u8; 7] = b"_common";
 
 // subspace
 #[post]
-pub fn add_subspace(mut sb: VeSubspace) -> Result<(), String> {
+pub fn add_subspace(
+    mut sb: VeSubspace,
+    account: String,
+    msg: String,
+    sig: String,
+) -> Result<(), String> {
+    if !validate(&account, &msg, &sig)? {
+        return Err("signature validation error".to_string());
+    };
+
     let max_id = get_max_id(PREFIX_SUBSPACE_KEY);
     // update the id field from the avs
     sb.id = max_id;
@@ -108,7 +119,16 @@ pub fn add_subspace(mut sb: VeSubspace) -> Result<(), String> {
 }
 
 #[post]
-pub fn update_subspace(sb: VeSubspace) -> Result<(), String> {
+pub fn update_subspace(
+    sb: VeSubspace,
+    account: String,
+    msg: String,
+    sig: String,
+) -> Result<(), String> {
+    if !validate(&account, &msg, &sig)? {
+        return Err("signature validation error".to_string());
+    };
+
     let id = sb.id;
     let key = build_key(PREFIX_SUBSPACE_KEY, id);
     storage::put(&key, sb.encode()).map_err(|e| e.to_string())?;
@@ -119,7 +139,11 @@ pub fn update_subspace(sb: VeSubspace) -> Result<(), String> {
 }
 
 #[post]
-pub fn delete_subspace(id: u64) -> Result<(), String> {
+pub fn delete_subspace(id: u64, account: String, msg: String, sig: String) -> Result<(), String> {
+    if !validate(&account, &msg, &sig)? {
+        return Err("signature validation error".to_string());
+    };
+
     let key = build_key(PREFIX_SUBSPACE_KEY, id);
     storage::del(&key).map_err(|e| e.to_string())?;
 
@@ -138,7 +162,16 @@ pub fn get_subspace(id: u64) -> Result<Option<VeSubspace>, String> {
 
 // article
 #[post]
-pub fn add_article(mut sb: VeArticle) -> Result<(), String> {
+pub fn add_article(
+    mut sb: VeArticle,
+    account: String,
+    msg: String,
+    sig: String,
+) -> Result<(), String> {
+    if !validate(&account, &msg, &sig)? {
+        return Err("signature validation error".to_string());
+    };
+
     let max_id = get_max_id(PREFIX_ARTICLE_KEY);
     // update the id field from the avs
     sb.id = max_id;
@@ -150,7 +183,16 @@ pub fn add_article(mut sb: VeArticle) -> Result<(), String> {
 }
 
 #[post]
-pub fn update_article(sb: VeArticle) -> Result<(), String> {
+pub fn update_article(
+    sb: VeArticle,
+    account: String,
+    msg: String,
+    sig: String,
+) -> Result<(), String> {
+    if !validate(&account, &msg, &sig)? {
+        return Err("signature validation error".to_string());
+    };
+
     let id = sb.id;
     let key = build_key(PREFIX_ARTICLE_KEY, id);
     storage::put(&key, sb.encode()).map_err(|e| e.to_string())?;
@@ -160,7 +202,11 @@ pub fn update_article(sb: VeArticle) -> Result<(), String> {
 }
 
 #[post]
-pub fn delete_article(id: u64) -> Result<(), String> {
+pub fn delete_article(id: u64, account: String, msg: String, sig: String) -> Result<(), String> {
+    if !validate(&account, &msg, &sig)? {
+        return Err("signature validation error".to_string());
+    };
+
     let key = build_key(PREFIX_ARTICLE_KEY, id);
     storage::del(&key).map_err(|e| e.to_string())?;
     add_to_common_key(Method::Delete, key)?;
@@ -178,7 +224,16 @@ pub fn get_article(id: u64) -> Result<Option<VeArticle>, String> {
 
 // comment
 #[post]
-pub fn add_comment(mut sb: VeComment) -> Result<(), String> {
+pub fn add_comment(
+    mut sb: VeComment,
+    account: String,
+    msg: String,
+    sig: String,
+) -> Result<(), String> {
+    if !validate(&account, &msg, &sig)? {
+        return Err("signature validation error".to_string());
+    };
+
     let max_id = get_max_id(PREFIX_COMMENT_KEY);
     // update the id field from the avs
     sb.id = max_id;
@@ -190,7 +245,16 @@ pub fn add_comment(mut sb: VeComment) -> Result<(), String> {
 }
 
 #[post]
-pub fn update_comment(sb: VeComment) -> Result<(), String> {
+pub fn update_comment(
+    sb: VeComment,
+    account: String,
+    msg: String,
+    sig: String,
+) -> Result<(), String> {
+    if !validate(&account, &msg, &sig)? {
+        return Err("signature validation error".to_string());
+    };
+
     let id = sb.id;
     let key = build_key(PREFIX_COMMENT_KEY, id);
     storage::put(&key, sb.encode()).map_err(|e| e.to_string())?;
@@ -200,7 +264,11 @@ pub fn update_comment(sb: VeComment) -> Result<(), String> {
 }
 
 #[post]
-pub fn delete_comment(id: u64) -> Result<(), String> {
+pub fn delete_comment(id: u64, account: String, msg: String, sig: String) -> Result<(), String> {
+    if !validate(&account, &msg, &sig)? {
+        return Err("signature validation error".to_string());
+    };
+
     let key = build_key(PREFIX_COMMENT_KEY, id);
     storage::del(&key).map_err(|e| e.to_string())?;
     add_to_common_key(Method::Delete, key)?;
@@ -296,4 +364,26 @@ fn get_reqnum() -> u64 {
     };
 
     reqnum
+}
+
+fn get_publickey_from_address(address: &str) -> Result<Public, String> {
+    Public::from_ss58check(address).map_err(|e| e.to_string())
+}
+
+fn check_signature(sig: &str) -> Result<Signature, String> {
+    let signature_bytes = hex::decode(sig).map_err(|e| e.to_string())?;
+    let signature = sp_core::sr25519::Signature::try_from(signature_bytes.as_slice())
+        .map_err(|_| "error while parsing signature from string".to_string())?;
+    Ok(signature)
+}
+
+fn verify(sig: &Signature, message: &[u8], pubkey: &Public) -> bool {
+    // Verify the signature
+    sp_core::sr25519::Pair::verify(&sig, message, &pubkey)
+}
+
+fn validate(address: &str, sigstr: &str, msg: &str) -> Result<bool, String> {
+    let public_key = get_publickey_from_address(address)?;
+    let sig = check_signature(sigstr)?;
+    Ok(verify(&sig, msg.as_bytes(), &public_key))
 }
