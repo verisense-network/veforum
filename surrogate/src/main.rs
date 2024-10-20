@@ -8,62 +8,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration};
 
-#[derive(Encode, Decode, Serialize, Deserialize)]
-struct User {
-    id: String,
-    name: String,
-    // Add other fields as needed
-}
-
-#[derive(Debug, Decode, Encode, Serialize, Deserialize)]
-pub enum Method {
-    Create,
-    Update,
-    Delete,
-}
-
-#[derive(Debug, Decode, Encode, Serialize, Deserialize)]
-pub struct VeSubspace {
-    pub id: u64,
-    pub title: String,
-    pub slug: String,
-    pub description: String,
-    pub banner: String,
-    pub status: i16,
-    pub weight: i16,
-    pub created_time: i64,
-}
-
-#[derive(Debug, Decode, Encode, Serialize, Deserialize)]
-pub struct VeArticle {
-    pub id: u64,
-    pub title: String,
-    pub content: String,
-    pub author_id: u64,
-    pub author_nickname: String,
-    pub subspace_id: u64,
-    pub extlink: String,
-    pub status: i16,
-    pub weight: i16,
-    pub created_time: i64,
-    pub updated_time: i64,
-}
-
-#[derive(Debug, Decode, Encode, Serialize, Deserialize)]
-pub struct VeComment {
-    pub id: u64,
-    pub content: String,
-    pub author_id: u64,
-    pub author_nickname: u64,
-    pub post_id: u64,
-    pub status: i16,
-    pub weight: i16,
-    pub created_time: i64,
-}
-
-const PREFIX_SUBSPACE_KEY: &[u8; 5] = b"vesb:";
-const PREFIX_ARTICLE_KEY: &[u8; 5] = b"vear:";
-const PREFIX_COMMENT_KEY: &[u8; 5] = b"veco:";
+use veavs::{VeSubspace, VeArticle, VeComment, PREFIX_SUBSPACE_KEY, PREFIX_ARTICLE_KEY, PREFIX_COMMENT_KEY, Method};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

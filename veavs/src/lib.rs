@@ -47,7 +47,7 @@ pub struct VeArticle {
     pub author_id: u64,
     pub author_nickname: String,
     pub subspace_id: u64,
-    pub extlink: String,
+    pub ext_link: String,
     pub status: i16,
     pub weight: i16,
     pub created_time: i64,
@@ -59,7 +59,7 @@ pub struct VeComment {
     pub id: u64,
     pub content: String,
     pub author_id: u64,
-    pub author_nickname: u64,
+    pub author_nickname: String,
     pub post_id: u64,
     pub status: i16,
     pub weight: i16,
@@ -67,9 +67,9 @@ pub struct VeComment {
 }
 
 // const PREFIX_USER_KEY: &[u8; 5] = b"veus:";
-const PREFIX_SUBSPACE_KEY: &[u8; 5] = b"vesb:";
-const PREFIX_ARTICLE_KEY: &[u8; 5] = b"vear:";
-const PREFIX_COMMENT_KEY: &[u8; 5] = b"veco:";
+pub const PREFIX_SUBSPACE_KEY: &[u8; 5] = b"vesb:";
+pub const PREFIX_ARTICLE_KEY: &[u8; 5] = b"vear:";
+pub const PREFIX_COMMENT_KEY: &[u8; 5] = b"veco:";
 
 const REQNUM_KEY: &[u8; 7] = b"_reqnum";
 const COMMON_KEY: &[u8; 7] = b"_common";
