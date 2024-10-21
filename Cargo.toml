@@ -1,7 +1,7 @@
 [workspace]
 members = [
-  "hello-avs"
-, "surrogate"]
+  "veavs"
+, "surrogate", "vemodel"]
 resolver = "2"
 
 

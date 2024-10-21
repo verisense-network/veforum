@@ -1,3 +1,5 @@
+use std::isize;
+
 use parity_scale_codec::{Decode, Encode};
 use vrs_core_sdk::{get, post, storage};
 
@@ -216,6 +218,14 @@ pub fn get_comment(id: u64) -> Result<Option<VeComment>, String> {
     Ok(instance)
 }
 
+#[get]
+pub fn check_all_range() -> Result<(), String> {
+    check_range(PREFIX_SUBSPACE_KEY);
+    check_range(PREFIX_ARTICLE_KEY);
+    check_range(PREFIX_COMMENT_KEY);
+    Ok(())
+}
+
 //
 //
 fn add_to_common_key(method: Method, model_ins: Vec<u8>) -> Result<(), String> {
@@ -241,15 +251,16 @@ pub fn get_from_common_key(sentinel: u64) -> Result<Vec<(u64, Method, Vec<u8>)>,
     let res = storage::get(COMMON_KEY).map_err(|e| e.to_string())?;
     if let Some(res) = res {
         let mut avec = Vec::<(u64, Method, Vec<u8>)>::decode(&mut &res[..]).unwrap();
-        let mut index = 0;
+        let mut index: isize = -1;
         for (i, &(reqnum, _, _)) in avec.iter().enumerate() {
-            if reqnum > sentinel {
-                index = i;
+            if reqnum <= sentinel {
+                index = i as isize;
+            } else {
                 break;
             }
         }
+        let last_part = avec.split_off((index + 1) as usize);
 
-        let last_part = avec.split_off(index);
         _ = storage::put(COMMON_KEY, last_part.encode()).map_err(|e| e.to_string());
         return Ok(last_part);
     }
@@ -261,13 +272,32 @@ fn get_max_id(prefix: &[u8; 5]) -> u64 {
     let max_id_key = [prefix, &u64::MAX.to_be_bytes()[..]].concat();
     let max_id = match storage::search(&max_id_key, storage::Direction::Reverse)
         .map_err(|e| e.to_string())
-        .expect("error in storage search.")
     {
-        Some((id, _)) => u64::from_be_bytes(id[5..].try_into().unwrap()) + 1,
-        None => 1u64,
+        Ok(Some((id, _))) => {
+            println!("==-->> max_id_key: {:?}", id);
+            if let Ok(id) = id[5..].try_into() {
+                u64::from_be_bytes(id) + 1
+            } else {
+                1u64
+            }
+        }
+        Ok(None) => 1u64,
+        Err(_) => 1u64,
     };
+    println!("==-->> the next max id is: {}", max_id);
 
     max_id
+}
+
+fn check_range(prefix: &[u8; 5]) {
+    match storage::get_range(&prefix, storage::Direction::Forward, 100).map_err(|e| e.to_string()) {
+        Ok(vec) => {
+            println!("{:?}", vec)
+        }
+        Err(e) => {
+            println!("{:?}", e)
+        }
+    };
 }
 
 fn build_key(prefix: &[u8; 5], id: u64) -> Vec<u8> {
@@ -279,12 +309,13 @@ fn get_reqnum() -> u64 {
         .map_err(|e| e.to_string())
         .expect("error in storage get");
     let reqnum = if let Some(res) = res {
-        let reqnum: u64 = u64::from_be_bytes(TryInto::<[u8; 8]>::try_into(res).unwrap());
+        // XXX: notice that the SCALE use the little endian format
+        let reqnum: u64 = u64::from_le_bytes(TryInto::<[u8; 8]>::try_into(res).unwrap());
         println!("==> current reqnum: {:?}", reqnum);
 
         // increase reqnum on every request of reqnum
-        let new_reqnum = reqnum + 1;
-        _ = storage::put(REQNUM_KEY, new_reqnum.encode()).map_err(|e| e.to_string());
+        let reqnum = reqnum + 1;
+        _ = storage::put(REQNUM_KEY, reqnum.encode()).map_err(|e| e.to_string());
 
         reqnum
     } else {
