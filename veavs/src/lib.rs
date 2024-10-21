@@ -1,101 +1,13 @@
-use std::isize;
-
 use parity_scale_codec::{Decode, Encode};
 use sp_core::crypto::{Pair, Ss58Codec};
 use sp_core::sr25519::{Public, Signature};
+use std::isize;
 use vrs_core_sdk::{get, post, storage};
 
-#[derive(Debug, Decode, Encode)]
-pub struct User {
-    pub id: u64,
-    pub name: String,
-}
-
-#[derive(Debug, Decode, Encode)]
-pub enum Method {
-    Create,
-    Update,
-    Delete,
-}
-
-// #[derive(Debug, Clone, Default, Encode, Decode)]
-// pub struct VeUser {
-//     pub id: u64,
-//     pub account: String,
-//     pub nickname: String,
-//     pub avatar: String,
-//     pub role: i16,
-//     pub status: i16,
-//     pub created_time: i64,
-// }
-
-#[derive(Debug, Clone, Default, Encode, Decode)]
-pub struct VeSubspace {
-    pub id: u64,
-    pub title: String,
-    pub slug: String,
-    pub description: String,
-    pub banner: String,
-    pub status: i16,
-    pub weight: i16,
-    pub created_time: i64,
-}
-
-#[derive(Debug, Clone, Default, Encode, Decode)]
-pub struct VeArticle {
-    pub id: u64,
-    pub title: String,
-    pub content: String,
-    pub author_id: u64,
-    pub author_nickname: String,
-    pub subspace_id: u64,
-    pub ext_link: String,
-    pub status: i16,
-    pub weight: i16,
-    pub created_time: i64,
-    pub updated_time: i64,
-}
-
-#[derive(Debug, Clone, Default, Encode, Decode)]
-pub struct VeComment {
-    pub id: u64,
-    pub content: String,
-    pub author_id: u64,
-    pub author_nickname: String,
-    pub post_id: u64,
-    pub status: i16,
-    pub weight: i16,
-    pub created_time: i64,
-}
-
-// const PREFIX_USER_KEY: &[u8; 5] = b"veus:";
-pub const PREFIX_SUBSPACE_KEY: &[u8; 5] = b"vesb:";
-pub const PREFIX_ARTICLE_KEY: &[u8; 5] = b"vear:";
-pub const PREFIX_COMMENT_KEY: &[u8; 5] = b"veco:";
-
-const REQNUM_KEY: &[u8; 7] = b"_reqnum";
-const COMMON_KEY: &[u8; 7] = b"_common";
-
-// #[post]
-// pub fn add_user(user: User) -> Result<(), String> {
-//     let max_id_key = [&b"user:"[..], &u64::MAX.to_be_bytes()[..]].concat();
-//     let max_id = match storage::search(&max_id_key, storage::Direction::Reverse)
-//         .map_err(|e| e.to_string())?
-//     {
-//         Some((id, _)) => u64::from_be_bytes(id[5..].try_into().unwrap()) + 1,
-//         None => 1u64,
-//     };
-//     let key = [&b"user:"[..], &max_id.to_be_bytes()[..]].concat();
-//     storage::put(&key, user.encode()).map_err(|e| e.to_string())
-// }
-
-// #[get]
-// pub fn get_user(id: u64) -> Result<Option<User>, String> {
-//     let key = [&b"user:"[..], &id.to_be_bytes()[..]].concat();
-//     let r = storage::get(&key).map_err(|e| e.to_string())?;
-//     let user = r.map(|d| User::decode(&mut &d[..]).unwrap());
-//     Ok(user)
-// }
+use vemodel::{
+    Method, VeArticle, VeComment, VeSubspace, COMMON_KEY, PREFIX_ARTICLE_KEY, PREFIX_COMMENT_KEY,
+    PREFIX_SUBSPACE_KEY, REQNUM_KEY,
+};
 
 // subspace
 #[post]
