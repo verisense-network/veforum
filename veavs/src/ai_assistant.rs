@@ -73,18 +73,25 @@ fn reply_all_articles() -> Result<(), String> {
     let articles = fetch_lastest_article()?;
     for article in articles {
         if !check_article_processing(article.id)? {
-            let url = "https://api.openai.com/v1/chat/completions";
+            let url = "https://api.openai.com/v1/completions";
 
             let mut headers = BTreeMap::new();
-            headers.insert("Authorization".to_string(), format!("Bearer {}", api_key));
+            headers.insert(
+                "Authorization".to_string(),
+                format!("Bearer {}", constants::OPENAI_API_KEY),
+            );
             headers.insert("Content-Type".to_string(), "application/json".to_string());
 
-            let request_body = json!({
-                "model": "gpt-3.5-turbo",
-                "messages": [
-                    {"role": "user", "content": post_content}
-                ]
-            });
+            let request_body = format!(
+                r#"{{
+                    "model": "gpt-4",
+                    "messages": [
+                        {{"role": "system", "content": "You are an automated reply bot."}},
+                        {{"role": "user", "content": "{}"}}
+                    ]
+                }}"#,
+                article.content
+            );
 
             let request_head = RequestHead {
                 method: HttpMethod::Post,
@@ -94,18 +101,9 @@ fn reply_all_articles() -> Result<(), String> {
 
             let request = HttpRequest {
                 head: request_head,
-                body: serde_json::to_vec(&request_body)?,
+                body: request_body.into_bytes(),
             };
-
-            let id = http::request(HttpRequest {
-                head: RequestHead {
-                    method: HttpMethod::Get,
-                    uri: "https://www.baidu.com".to_string(),
-                    headers: Default::default(),
-                },
-                body: vec![],
-            })
-            .map_err(|e| e.to_string())?;
+            let id = http::request(request).map_err(|e| e.to_string())?;
             vrs_core_sdk::println!("http request {} enqueued", id);
 
             let key = [PREFIX_ARTICLE_PROCESSING_KEY, &article.id.to_be_bytes()[..]].concat();
@@ -134,7 +132,7 @@ pub fn on_response(id: u64, response: CallResult<HttpResponse>) {
                 match response {
                     Ok(response) => {
                         let body = String::from_utf8_lossy(&response.body);
-                        // vrs_core_sdk::println!("id = {}, response: {}", id, body);
+                        vrs_core_sdk::println!("id = {}, response: {}", id, body);
                         reply_article(body.to_string(), article_id).map_err(|e| e.to_string())
                     }
                     Err(e) => {
