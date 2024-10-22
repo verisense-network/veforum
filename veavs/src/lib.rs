@@ -310,7 +310,7 @@ fn get_reqnum() -> u64 {
 }
 
 fn get_publickey_from_address(address: &str) -> Result<Public, String> {
-    Public::from_ss58check(address).map_err(|e| e.to_string())
+    Public::from_ss58check(address).map_err(|_| "check ss58 address error".to_string())
 }
 
 fn check_signature(sig: &str) -> Result<Signature, String> {

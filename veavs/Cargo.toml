@@ -9,7 +9,8 @@ crate-type = ["cdylib"]
 [dependencies]
 vrs-core-sdk = { git = "https://github.com/verisense-network/verisense.git", package = "vrs-core-sdk" }
 parity-scale-codec = { version = "3.6", features = ["derive"] }
-sp-core = "34.0"
+sp-core = { version = "34.0", default-features = false, features = ["full_crypto", "serde"] }
 hex = "0.4.3"
+# hex = { version = "0.4.3", default-features = false, features = ["alloc"] }
 
 vemodel = { path = "../vemodel" }
