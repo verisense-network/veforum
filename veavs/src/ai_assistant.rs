@@ -5,7 +5,7 @@ use std::{collections::BTreeMap, isize};
 use vrs_core_sdk::{
     callback,
     http::{self, *},
-    now, set_timer, timer, CallResult,
+    now, set_timer, timer, timer_init, CallResult,
 };
 use vrs_core_sdk::{get, post, storage};
 
@@ -131,6 +131,10 @@ fn reply_all_articles() -> Result<(), String> {
         }
     }
     Ok(())
+}
+#[timer_init]
+fn timer_init() {
+    set_timer!(5, timer_reply_all_articles);
 }
 #[timer]
 fn timer_reply_all_articles() {
