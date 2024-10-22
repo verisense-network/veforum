@@ -1,4 +1,6 @@
 use parity_scale_codec::{Decode, Encode};
+use serde::Deserialize;
+use serde_json::Value;
 use std::{collections::BTreeMap, isize};
 use vrs_core_sdk::{
     callback,
@@ -7,6 +9,20 @@ use vrs_core_sdk::{
 };
 use vrs_core_sdk::{get, post, storage};
 
+#[derive(Deserialize)]
+struct Choice {
+    message: Message,
+}
+
+#[derive(Deserialize)]
+struct Message {
+    content: String,
+}
+
+#[derive(Deserialize)]
+struct ApiResponse {
+    choices: Vec<Choice>,
+}
 use vemodel::{
     Method, VeArticle, VeComment, VeSubspace, COMMON_KEY, PREFIX_ARTICLE_KEY, PREFIX_COMMENT_KEY,
     PREFIX_SUBSPACE_KEY, REQNUM_KEY,
@@ -73,7 +89,7 @@ fn reply_all_articles() -> Result<(), String> {
     let articles = fetch_lastest_article()?;
     for article in articles {
         if !check_article_processing(article.id)? {
-            let url = "https://api.openai.com/v1/completions";
+            let url = "https://api.openai.com/v1/chat/completions";
 
             let mut headers = BTreeMap::new();
             headers.insert(
@@ -86,12 +102,13 @@ fn reply_all_articles() -> Result<(), String> {
                 r#"{{
                     "model": "gpt-4",
                     "messages": [
-                        {{"role": "system", "content": "You are an automated reply bot."}},
+                        {{"role": "system", "content": "You are a helpful and engaging reply bot designed to respond to comments on a forum. Your goal is to provide informative, friendly, and contextually relevant responses to each comment you receive. Please ensure your replies are polite, concise, and add value to the conversation. If a comment asks a question, try to provide a clear and accurate answer. If the comment is an opinion, acknowledge it and offer additional insights or related information. Always maintain a positive and respectful tone.\nExample:\n1. Comment: What are the benefits of using Rust for web development?\nReply: Rust offers several benefits for web development, including memory safety, high performance, and a strong type system that helps catch bugs at compile time. Additionally, frameworks like Actix and Rocket make it easier to build robust web applications in Rust.\n2. Comment: I think Python is better than Rust for beginners.\nReply: Python is indeed a great language for beginners due to its simple syntax and vast community support. However, Rust can be a good choice for those interested in systems programming and learning about memory management. Both languages have their strengths depending on your goals.\n3. Comment: Can someone explain async programming in simple terms?\nReply: Async programming allows your program to perform tasks without blocking the main thread, meaning it can handle other tasks while waiting for long operations to complete. This is especially useful in web servers, where handling multiple requests simultaneously is important.\nThis prompt sets clear expectations for the bot's behavior and provides examples to guide the generation of responses. You can customize the prompt further based on the specific needs of your application or forum."}},
                         {{"role": "user", "content": "{}"}}
                     ]
                 }}"#,
                 article.content
             );
+            vrs_core_sdk::println!("request_body: {}", request_body);
 
             let request_head = RequestHead {
                 method: HttpMethod::Post,
@@ -123,7 +140,7 @@ fn timer_reply_all_articles() {
 
 #[callback]
 pub fn on_response(id: u64, response: CallResult<HttpResponse>) {
-    storage::get(&[PREFIX_REQUEST_ARTICLE_ID_MAPPING, &id.to_be_bytes()[..]].concat())
+    let _ = storage::get(&[PREFIX_REQUEST_ARTICLE_ID_MAPPING, &id.to_be_bytes()[..]].concat())
         .map_err(|e| e.to_string())
         .and_then(|article_id| {
             if let Some(article_id) = article_id {
@@ -133,7 +150,18 @@ pub fn on_response(id: u64, response: CallResult<HttpResponse>) {
                     Ok(response) => {
                         let body = String::from_utf8_lossy(&response.body);
                         vrs_core_sdk::println!("id = {}, response: {}", id, body);
-                        reply_article(body.to_string(), article_id).map_err(|e| e.to_string())
+                        let parsed: ApiResponse =
+                            serde_json::from_str(&body).map_err(|e| e.to_string())?;
+
+                        // Extract the content from the first choice
+                        if let Some(first_choice) = parsed.choices.get(0) {
+                            println!("Content: {}", first_choice.message.content.clone());
+                            reply_article(first_choice.message.content.clone(), article_id)
+                                .map_err(|e| e.to_string())
+                        } else {
+                            vrs_core_sdk::eprintln!("id = {}, error: No choices available.", id);
+                            return Err("No choices available.".to_string());
+                        }
                     }
                     Err(e) => {
                         vrs_core_sdk::eprintln!("id = {}, error: {:?}", id, e);
