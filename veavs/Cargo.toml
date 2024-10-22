@@ -7,7 +7,8 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-vrs-core-sdk = { git = "https://github.com/verisense-network/verisense.git", package = "vrs-core-sdk" }
+# vrs-core-sdk = { git = "https://github.com/verisense-network/verisense.git", package = "vrs-core-sdk" }
+vrs-core-sdk = { path = "../../verisense/nucleus/core-sdk" }
 parity-scale-codec = { version = "3.6", features = ["derive"] }
 
 vemodel = { path = "../vemodel" }

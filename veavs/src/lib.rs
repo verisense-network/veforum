@@ -1,3 +1,5 @@
+mod ai_assistant;
+mod constants;
 use parity_scale_codec::{Decode, Encode};
 use std::isize;
 use vrs_core_sdk::{get, post, storage};
