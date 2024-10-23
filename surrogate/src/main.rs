@@ -8,6 +8,9 @@ use parity_scale_codec::{Decode, Encode};
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration};
 
+use dotenv::dotenv;
+use std::env;
+
 use vemodel::{
     Method, VeArticle, VeComment, VeSubspace, PREFIX_ARTICLE_KEY, PREFIX_COMMENT_KEY,
     PREFIX_SUBSPACE_KEY,
@@ -15,12 +18,17 @@ use vemodel::{
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    dotenv().ok();
+    let meilisearch_addr = env::var("MEILISEARCH_ADDR").expect("MEILISEARCH_ADDR must be set");
+    let verisense_addr = env::var("VERISENSE_ADDR").expect("VERISENSE_ADDR must be set");
+
     let (tx, mut rx) = mpsc::channel(100);
 
     // Spawn a task for MeiliSearch indexing
     tokio::spawn(async move {
+        let url = format!("http://{}:7700", meilisearch_addr);
         let client = Client::new(
-            "http://localhost:7700",
+            &url,
             // Some("QxU85pZKzdXRl8T89ST0hVKvDQkWXJ9h2Wx8E3ksz68"),
             Some("123456"),
         )
@@ -65,8 +73,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
 
+    let url = format!("http://{}:9944", verisense_addr);
     // Main task for RPC querying
-    let http_client = HttpClientBuilder::default().build("http://localhost:9944")?;
+    let http_client = HttpClientBuilder::default().build(&url)?;
 
     let avs_id = "5FsXfPrUDqq6abYccExCTUxyzjYaaYTr5utLx2wwdBv1m8R8";
     let mut sentinel: u64 = 0;
@@ -78,153 +87,163 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             hex::encode(sentinel.encode())
         ];
 
-        let res: serde_json::Value = http_client.request("nucleus_post", params).await?;
+        let res: Result<serde_json::Value, _> = http_client.request("nucleus_post", params).await;
         println!("get from common key result: {:?}", res);
-        let res = res.as_str().expect("a str res");
-        println!("str res: {}", res);
-        let bytes = hex::decode(res).expect("Invalid hex string");
-        // let res = <Option<User>>::decode(&mut &bytes[..]);
-        let res = <Result<Vec<(u64, Method, Vec<u8>)>, String>>::decode(&mut &bytes[..]).unwrap();
-        // let result: Result<Vec<(u64, Method, Vec<u8>)>, String> =
-        println!("res: {:?}", res);
-
-        for (reqnum, method, key) in res? {
-            match slice_to_array(&key[..5]).unwrap() {
-                PREFIX_SUBSPACE_KEY => {
-                    let id = vec_to_u64(&key[5..]);
-                    match method {
-                        Method::Create | Method::Update => {
-                            let params =
-                                rpc_params![avs_id, "get_subspace", hex::encode(id.encode())];
-                            let res: serde_json::Value =
-                                http_client.request("nucleus_get", params).await?;
-                            let res = res.as_str().expect("a str res");
-                            println!("subspace str res: {}", res);
-                            let bytes = hex::decode(res).expect("Invalid hex string");
-                            let result =
-                                <Result<Option<VeSubspace>, String>>::decode(&mut &bytes[..])
+        if let Ok(res) = res {
+            let res = res.as_str().expect("a str res");
+            println!("str res: {}", res);
+            let bytes = hex::decode(res).expect("Invalid hex string");
+            // let res = <Option<User>>::decode(&mut &bytes[..]);
+            let res =
+                <Result<Vec<(u64, Method, Vec<u8>)>, String>>::decode(&mut &bytes[..]).unwrap();
+            // let result: Result<Vec<(u64, Method, Vec<u8>)>, String> =
+            if res.is_err() {
+                println!("res: {:?}", res);
+            } else {
+                for (reqnum, method, key) in res? {
+                    match slice_to_array(&key[..5]).unwrap() {
+                        PREFIX_SUBSPACE_KEY => {
+                            let id = vec_to_u64(&key[5..]);
+                            match method {
+                                Method::Create | Method::Update => {
+                                    let params = rpc_params![
+                                        avs_id,
+                                        "get_subspace",
+                                        hex::encode(id.encode())
+                                    ];
+                                    let res: serde_json::Value =
+                                        http_client.request("nucleus_get", params).await?;
+                                    let res = res.as_str().expect("a str res");
+                                    println!("subspace str res: {}", res);
+                                    let bytes = hex::decode(res).expect("Invalid hex string");
+                                    let result = <Result<Option<VeSubspace>, String>>::decode(
+                                        &mut &bytes[..],
+                                    )
                                     .unwrap();
-                            match result {
-                                Ok(Some(sb)) => {
-                                    println!("subspace: {:?}", sb);
+                                    match result {
+                                        Ok(Some(sb)) => {
+                                            println!("subspace: {:?}", sb);
+                                            // Serialize the user to a JSON Value
+                                            let json_value = serde_json::to_value(&sb)?;
+
+                                            // Send the JSON Value through the channel
+                                            tx.send(("subspace", method, json_value)).await?;
+                                        }
+                                        Ok(None) => {
+                                            println!("none");
+                                        }
+                                        Err(err) => {
+                                            println!("{err}");
+                                        }
+                                    }
+                                }
+                                Method::Delete => {
                                     // Serialize the user to a JSON Value
-                                    let json_value = serde_json::to_value(&sb)?;
+                                    let json_value = serde_json::to_value(&id)?;
 
                                     // Send the JSON Value through the channel
                                     tx.send(("subspace", method, json_value)).await?;
                                 }
-                                Ok(None) => {
-                                    println!("none");
-                                }
-                                Err(err) => {
-                                    println!("{err}");
-                                }
                             }
                         }
-                        Method::Delete => {
-                            // Serialize the user to a JSON Value
-                            let json_value = serde_json::to_value(&id)?;
-
-                            // Send the JSON Value through the channel
-                            tx.send(("subspace", method, json_value)).await?;
-                        }
-                    }
-                }
-                PREFIX_ARTICLE_KEY => {
-                    let id = vec_to_u64(&key[5..]);
-                    match method {
-                        Method::Create | Method::Update => {
-                            let params =
-                                rpc_params![avs_id, "get_article", hex::encode(id.encode())];
-                            let res: serde_json::Value =
-                                http_client.request("nucleus_get", params).await?;
-                            let res = res.as_str().expect("a str res");
-                            println!("article str res: {}", res);
-                            let bytes = hex::decode(res).expect("Invalid hex string");
-                            let result =
-                                <Result<Option<VeArticle>, String>>::decode(&mut &bytes[..])
+                        PREFIX_ARTICLE_KEY => {
+                            let id = vec_to_u64(&key[5..]);
+                            match method {
+                                Method::Create | Method::Update => {
+                                    let params = rpc_params![
+                                        avs_id,
+                                        "get_article",
+                                        hex::encode(id.encode())
+                                    ];
+                                    let res: serde_json::Value =
+                                        http_client.request("nucleus_get", params).await?;
+                                    let res = res.as_str().expect("a str res");
+                                    println!("article str res: {}", res);
+                                    let bytes = hex::decode(res).expect("Invalid hex string");
+                                    let result = <Result<Option<VeArticle>, String>>::decode(
+                                        &mut &bytes[..],
+                                    )
                                     .unwrap();
-                            match result {
-                                Ok(Some(sb)) => {
-                                    println!("article: {:?}", sb);
+                                    match result {
+                                        Ok(Some(sb)) => {
+                                            println!("article: {:?}", sb);
+                                            // Serialize the user to a JSON Value
+                                            let json_value = serde_json::to_value(&sb)?;
+
+                                            // Send the JSON Value through the channel
+                                            tx.send(("article", method, json_value)).await?;
+                                        }
+                                        Ok(None) => {
+                                            println!("none");
+                                        }
+                                        Err(err) => {
+                                            println!("{err}");
+                                        }
+                                    }
+                                }
+                                Method::Delete => {
                                     // Serialize the user to a JSON Value
-                                    let json_value = serde_json::to_value(&sb)?;
+                                    let json_value = serde_json::to_value(&id)?;
 
                                     // Send the JSON Value through the channel
                                     tx.send(("article", method, json_value)).await?;
                                 }
-                                Ok(None) => {
-                                    println!("none");
-                                }
-                                Err(err) => {
-                                    println!("{err}");
-                                }
                             }
                         }
-                        Method::Delete => {
-                            // Serialize the user to a JSON Value
-                            let json_value = serde_json::to_value(&id)?;
-
-                            // Send the JSON Value through the channel
-                            tx.send(("article", method, json_value)).await?;
-                        }
-                    }
-                }
-                PREFIX_COMMENT_KEY => {
-                    let id = vec_to_u64(&key[5..]);
-                    match method {
-                        Method::Create | Method::Update => {
-                            let params =
-                                rpc_params![avs_id, "get_comment", hex::encode(id.encode())];
-                            let res: serde_json::Value =
-                                http_client.request("nucleus_get", params).await?;
-                            let res = res.as_str().expect("a str res");
-                            println!("comment str res: {}", res);
-                            let bytes = hex::decode(res).expect("Invalid hex string");
-                            let result =
-                                <Result<Option<VeComment>, String>>::decode(&mut &bytes[..])
+                        PREFIX_COMMENT_KEY => {
+                            let id = vec_to_u64(&key[5..]);
+                            match method {
+                                Method::Create | Method::Update => {
+                                    let params = rpc_params![
+                                        avs_id,
+                                        "get_comment",
+                                        hex::encode(id.encode())
+                                    ];
+                                    let res: serde_json::Value =
+                                        http_client.request("nucleus_get", params).await?;
+                                    let res = res.as_str().expect("a str res");
+                                    println!("comment str res: {}", res);
+                                    let bytes = hex::decode(res).expect("Invalid hex string");
+                                    let result = <Result<Option<VeComment>, String>>::decode(
+                                        &mut &bytes[..],
+                                    )
                                     .unwrap();
-                            match result {
-                                Ok(Some(sb)) => {
-                                    println!("comment: {:?}", sb);
+                                    match result {
+                                        Ok(Some(sb)) => {
+                                            println!("comment: {:?}", sb);
+                                            // Serialize the user to a JSON Value
+                                            let json_value = serde_json::to_value(&sb)?;
+
+                                            // Send the JSON Value through the channel
+                                            tx.send(("comment", method, json_value)).await?;
+                                        }
+                                        Ok(None) => {
+                                            println!("none");
+                                        }
+                                        Err(err) => {
+                                            println!("{err}");
+                                        }
+                                    }
+                                }
+                                Method::Delete => {
                                     // Serialize the user to a JSON Value
-                                    let json_value = serde_json::to_value(&sb)?;
+                                    let json_value = serde_json::to_value(&id)?;
 
                                     // Send the JSON Value through the channel
                                     tx.send(("comment", method, json_value)).await?;
                                 }
-                                Ok(None) => {
-                                    println!("none");
-                                }
-                                Err(err) => {
-                                    println!("{err}");
-                                }
                             }
                         }
-                        Method::Delete => {
-                            // Serialize the user to a JSON Value
-                            let json_value = serde_json::to_value(&id)?;
-
-                            // Send the JSON Value through the channel
-                            tx.send(("comment", method, json_value)).await?;
-                        }
+                        _ => {}
                     }
+                    sentinel = reqnum;
                 }
-                _ => {}
             }
-            sentinel = reqnum;
+        } else {
+            println!("error from get_from_common_key");
         }
 
-        // // Decode the SCALE-encoded result
-        // let user = User::decode(&mut &result[..])?;
-
-        // // Serialize the user to a JSON Value
-        // let json_value = serde_json::to_value(&user)?;
-
-        // // Send the JSON Value through the channel
-        // tx.send(json_value).await?;
-
-        sleep(Duration::from_secs(5)).await;
+        sleep(Duration::from_secs(2)).await;
     }
 }
 
