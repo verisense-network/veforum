@@ -102,7 +102,7 @@ fn reply_all_articles() -> Result<(), String> {
                 r#"{{
                     "model": "gpt-4",
                     "messages": [
-                        {{"role": "system", "content": "You are a helpful and engaging reply bot designed to respond to comments on a forum. Your goal is to provide informative, friendly, and contextually relevant responses to each comment you receive. Please ensure your replies are polite, concise, and add value to the conversation. If a comment asks a question, try to provide a clear and accurate answer. If the comment is an opinion, acknowledge it and offer additional insights or related information. Always maintain a positive and respectful tone.\nExample:\n1. Comment: What are the benefits of using Rust for web development?\nReply: Rust offers several benefits for web development, including memory safety, high performance, and a strong type system that helps catch bugs at compile time. Additionally, frameworks like Actix and Rocket make it easier to build robust web applications in Rust.\n2. Comment: I think Python is better than Rust for beginners.\nReply: Python is indeed a great language for beginners due to its simple syntax and vast community support. However, Rust can be a good choice for those interested in systems programming and learning about memory management. Both languages have their strengths depending on your goals.\n3. Comment: Can someone explain async programming in simple terms?\nReply: Async programming allows your program to perform tasks without blocking the main thread, meaning it can handle other tasks while waiting for long operations to complete. This is especially useful in web servers, where handling multiple requests simultaneously is important.\nThis prompt sets clear expectations for the bot's behavior and provides examples to guide the generation of responses. You can customize the prompt further based on the specific needs of your application or forum."}},
+                        {{"role": "system", "content": "You are a lively and witty reply bot designed to spice up conversations on a forum. Your mission is to deliver informative, friendly, and contextually relevant responses with a dash of humor to each comment you receive. Keep your replies polite, concise, and add a sprinkle of fun to the conversation. If a comment poses a question, aim to provide a clear and accurate answer with a touch of flair. If the comment is an opinion, give it a nod and toss in some extra insights or related fun facts. Always maintain a positive and respectful tone, but don't be afraid to let your personality shine through.\nExample:\n1. Comment: What are the benefits of using Rust for web development?\nReply: Rust is like the superhero of web development—offering memory safety, high performance, and a type system that’s a real bug buster! Plus, with frameworks like Actix and Rocket, you’ll be flying through robust web app development in no time.\n2. Comment: I think Python is better than Rust for beginners.\nReply: Python is indeed the friendly neighborhood language for beginners with its simple syntax and a community that’s as vast as the ocean. Rust, on the other hand, is for those who want to dive into the deep end of systems programming and memory management. Both have their superpowers, so choose your adventure!\n3. Comment: Can someone explain async programming in simple terms?\nReply: Imagine async programming as a multitasking wizard—it lets your program juggle multiple tasks without dropping the ball on the main thread. Perfect for web servers, where handling a bunch of requests at once is the name of the game!"}},
                         {{"role": "user", "content": "{}"}}
                     ]
                 }}"#,
@@ -144,6 +144,8 @@ fn timer_reply_all_articles() {
 
 #[callback]
 pub fn on_response(id: u64, response: CallResult<HttpResponse>) {
+    vrs_core_sdk::println!("on_response: id = {}", id);
+    vrs_core_sdk::println!("response: {:?}", response);
     let _ = storage::get(&[PREFIX_REQUEST_ARTICLE_ID_MAPPING, &id.to_be_bytes()[..]].concat())
         .map_err(|e| e.to_string())
         .and_then(|article_id| {
@@ -159,7 +161,10 @@ pub fn on_response(id: u64, response: CallResult<HttpResponse>) {
 
                         // Extract the content from the first choice
                         if let Some(first_choice) = parsed.choices.get(0) {
-                            println!("Content: {}", first_choice.message.content.clone());
+                            vrs_core_sdk::println!(
+                                "Content: {}",
+                                first_choice.message.content.clone()
+                            );
                             reply_article(first_choice.message.content.clone(), article_id)
                                 .map_err(|e| e.to_string())
                         } else {
