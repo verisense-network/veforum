@@ -82,7 +82,9 @@ pub fn add_article(
     msg: String,
     sig: String,
 ) -> Result<(), String> {
+    vrs_core_sdk::println!(">>> in add_article: {} {} {}", account, msg, sig);
     if !validate(&account, &msg, &sig)? {
+        vrs_core_sdk::println!(">>> in add_article: validation failed.");
         return Err("signature validation error".to_string());
     };
 
@@ -314,9 +316,12 @@ fn get_publickey_from_address(address: &str) -> Result<Public, String> {
 }
 
 fn check_signature(sig: &str) -> Result<Signature, String> {
+    vrs_core_sdk::println!(">>> in check_signature. 1");
     let signature_bytes = hex::decode(sig).map_err(|e| e.to_string())?;
+    vrs_core_sdk::println!(">>> in check_signature. 2");
     let signature = sp_core::sr25519::Signature::try_from(signature_bytes.as_slice())
         .map_err(|_| "error while parsing signature from string".to_string())?;
+    vrs_core_sdk::println!(">>> in check_signature. 3");
     Ok(signature)
 }
 
@@ -325,8 +330,13 @@ fn verify(sig: &Signature, message: &[u8], pubkey: &Public) -> bool {
     sp_core::sr25519::Pair::verify(&sig, message, &pubkey)
 }
 
-fn validate(address: &str, sigstr: &str, msg: &str) -> Result<bool, String> {
+fn validate(address: &str, msg: &str, sig: &str) -> Result<bool, String> {
+    vrs_core_sdk::println!(">>> in validate. 1");
     let public_key = get_publickey_from_address(address)?;
-    let sig = check_signature(sigstr)?;
-    Ok(verify(&sig, msg.as_bytes(), &public_key))
+    vrs_core_sdk::println!(">>> in validate. 2");
+    let sig = check_signature(sig)?;
+    vrs_core_sdk::println!(">>> in validate. 3");
+    let tover_msg = "<Bytes>".to_string() + msg + "</Bytes>";
+    vrs_core_sdk::println!(">>> in validate. 4. {}", tover_msg);
+    Ok(verify(&sig, &tover_msg.as_bytes(), &public_key))
 }
