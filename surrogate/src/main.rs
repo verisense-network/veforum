@@ -8,6 +8,9 @@ use parity_scale_codec::{Decode, Encode};
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration};
 
+use dotenv::dotenv;
+use std::env;
+
 use vemodel::{
     Method, VeArticle, VeComment, VeSubspace, PREFIX_ARTICLE_KEY, PREFIX_COMMENT_KEY,
     PREFIX_SUBSPACE_KEY,
@@ -93,8 +96,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let bytes = hex::decode(res).expect("Invalid hex string");
             // let res = <Option<User>>::decode(&mut &bytes[..]);
             let res = <Result<Vec<(u64, Method, Vec<u8>)>, String>>::decode(&mut &bytes[..]).unwrap();
-            // let result: Result<Vec<(u64, Method, Vec<u8>)>, String> =
-            println!("res: {:?}", res);
             if res.is_err() {
                 println!("res: {:?}", res);
             } else {
@@ -225,7 +226,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     sentinel = reqnum;
                 }
             }
-
         } else {
             println!("error from get_from_common_key");
         }

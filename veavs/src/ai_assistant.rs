@@ -5,7 +5,9 @@ use std::{collections::BTreeMap, isize};
 use vrs_core_sdk::{
     callback,
     http::{self, *},
-    now, set_timer, timer, timer_init, CallResult,
+    init, set_timer, timer,
+    timer::now,
+    CallResult,
 };
 use vrs_core_sdk::{get, post, storage};
 
@@ -33,6 +35,9 @@ use super::*;
 
 #[get]
 fn fetch_lastest_article() -> Result<Vec<VeArticle>, String> {
+    _fetch_lastest_article()
+}
+fn _fetch_lastest_article() -> Result<Vec<VeArticle>, String> {
     let mut articles = vec![];
     let max_id_key = [PREFIX_ARTICLE_KEY, &u64::MAX.to_be_bytes()[..]].concat();
     match storage::get_range(PREFIX_ARTICLE_KEY, storage::Direction::Forward, 100)
@@ -53,13 +58,16 @@ fn fetch_lastest_article() -> Result<Vec<VeArticle>, String> {
     };
     Ok(articles)
 }
-#[get]
-fn check_article_processing(article_id: u64) -> Result<bool, String> {
+fn _check_article_processing(article_id: u64) -> Result<bool, String> {
     let key = [PREFIX_ARTICLE_PROCESSING_KEY, &article_id.to_be_bytes()[..]].concat();
     match storage::get(&key).map_err(|e| e.to_string())? {
         Some(_) => Ok(true),
         None => Ok(false),
     }
+}
+#[get]
+fn check_article_processing(article_id: u64) -> Result<bool, String> {
+    _check_article_processing(article_id)
 }
 
 fn reply_article(content: String, article_id: u64) -> Result<u64, String> {
@@ -80,15 +88,18 @@ fn reply_article(content: String, article_id: u64) -> Result<u64, String> {
 
     let key = [PREFIX_ARTICLE_PROCESSING_KEY, &article_id.to_be_bytes()[..]].concat();
     storage::put(&key, comment.encode()).map_err(|e| e.to_string())?;
-    vrs_core_sdk::println!("{:?}", comment);
+    vrs_core_sdk::println!("wasm: comment: {:?}", comment);
 
     Ok(max_id)
 }
 #[post]
 fn reply_all_articles() -> Result<(), String> {
-    let articles = fetch_lastest_article()?;
+    _reply_all_articles()
+}
+fn _reply_all_articles() -> Result<(), String> {
+    let articles = _fetch_lastest_article()?;
     for article in articles {
-        if !check_article_processing(article.id)? {
+        if !_check_article_processing(article.id)? {
             let url = "https://api.openai.com/v1/chat/completions";
 
             let mut headers = BTreeMap::new();
@@ -108,7 +119,7 @@ fn reply_all_articles() -> Result<(), String> {
                 }}"#,
                 article.content
             );
-            vrs_core_sdk::println!("request_body: {}", request_body);
+            vrs_core_sdk::println!("wasm: request_body: {}", request_body);
 
             let request_head = RequestHead {
                 method: HttpMethod::Post,
@@ -121,7 +132,7 @@ fn reply_all_articles() -> Result<(), String> {
                 body: request_body.into_bytes(),
             };
             let id = http::request(request).map_err(|e| e.to_string())?;
-            vrs_core_sdk::println!("http request {} enqueued", id);
+            vrs_core_sdk::println!("wasm: http request {} enqueued", id);
 
             let key = [PREFIX_ARTICLE_PROCESSING_KEY, &article.id.to_be_bytes()[..]].concat();
             storage::put(&key, &id.to_be_bytes()).map_err(|e| e.to_string())?;
@@ -132,18 +143,20 @@ fn reply_all_articles() -> Result<(), String> {
     }
     Ok(())
 }
-#[timer_init]
+#[init]
 fn timer_init() {
-    set_timer!(5, timer_reply_all_articles);
+    set_timer!(core::time::Duration::from_secs(5), timer_reply_all_articles);
 }
 #[timer]
 fn timer_reply_all_articles() {
-    reply_all_articles();
-    set_timer!(5, timer_reply_all_articles);
+    _reply_all_articles();
+    set_timer!(core::time::Duration::from_secs(5), timer_reply_all_articles);
 }
 
 #[callback]
 pub fn on_response(id: u64, response: CallResult<HttpResponse>) {
+    vrs_core_sdk::println!("wasm: on_response: id = {}", id);
+    vrs_core_sdk::println!("wasm: response: {:?}", response);
     let _ = storage::get(&[PREFIX_REQUEST_ARTICLE_ID_MAPPING, &id.to_be_bytes()[..]].concat())
         .map_err(|e| e.to_string())
         .and_then(|article_id| {
@@ -153,22 +166,28 @@ pub fn on_response(id: u64, response: CallResult<HttpResponse>) {
                 match response {
                     Ok(response) => {
                         let body = String::from_utf8_lossy(&response.body);
-                        vrs_core_sdk::println!("id = {}, response: {}", id, body);
+                        vrs_core_sdk::println!("wasm: id = {}, response: {}", id, body);
                         let parsed: ApiResponse =
                             serde_json::from_str(&body).map_err(|e| e.to_string())?;
 
                         // Extract the content from the first choice
                         if let Some(first_choice) = parsed.choices.get(0) {
-                            println!("Content: {}", first_choice.message.content.clone());
+                            vrs_core_sdk::println!(
+                                "wasm: Content: {}",
+                                first_choice.message.content.clone()
+                            );
                             reply_article(first_choice.message.content.clone(), article_id)
                                 .map_err(|e| e.to_string())
                         } else {
-                            vrs_core_sdk::eprintln!("id = {}, error: No choices available.", id);
+                            vrs_core_sdk::eprintln!(
+                                "wasm: id = {}, error: No choices available.",
+                                id
+                            );
                             return Err("No choices available.".to_string());
                         }
                     }
                     Err(e) => {
-                        vrs_core_sdk::eprintln!("id = {}, error: {:?}", id, e);
+                        vrs_core_sdk::eprintln!("wasm: id = {}, error: {:?}", id, e);
                         Err(e.to_string())
                     }
                 }
@@ -176,5 +195,5 @@ pub fn on_response(id: u64, response: CallResult<HttpResponse>) {
                 return Err("article_id not found".to_string());
             }
         })
-        .map_err(|e| vrs_core_sdk::eprintln!("error: {:?}", e));
+        .map_err(|e| vrs_core_sdk::eprintln!("wasm: error: {:?}", e));
 }
