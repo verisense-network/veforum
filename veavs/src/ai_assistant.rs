@@ -5,7 +5,9 @@ use std::{collections::BTreeMap, isize};
 use vrs_core_sdk::{
     callback,
     http::{self, *},
-    now, set_timer, timer, timer_init, CallResult,
+    init, set_timer, timer,
+    timer::now,
+    CallResult,
 };
 use vrs_core_sdk::{get, post, storage};
 
@@ -33,6 +35,9 @@ use super::*;
 
 #[get]
 fn fetch_lastest_article() -> Result<Vec<VeArticle>, String> {
+    _fetch_lastest_article()
+}
+fn _fetch_lastest_article() -> Result<Vec<VeArticle>, String> {
     let mut articles = vec![];
     let max_id_key = [PREFIX_ARTICLE_KEY, &u64::MAX.to_be_bytes()[..]].concat();
     match storage::get_range(PREFIX_ARTICLE_KEY, storage::Direction::Forward, 100)
@@ -53,13 +58,16 @@ fn fetch_lastest_article() -> Result<Vec<VeArticle>, String> {
     };
     Ok(articles)
 }
-#[get]
-fn check_article_processing(article_id: u64) -> Result<bool, String> {
+fn _check_article_processing(article_id: u64) -> Result<bool, String> {
     let key = [PREFIX_ARTICLE_PROCESSING_KEY, &article_id.to_be_bytes()[..]].concat();
     match storage::get(&key).map_err(|e| e.to_string())? {
         Some(_) => Ok(true),
         None => Ok(false),
     }
+}
+#[get]
+fn check_article_processing(article_id: u64) -> Result<bool, String> {
+    _check_article_processing(article_id)
 }
 
 fn reply_article(content: String, article_id: u64) -> Result<u64, String> {
@@ -86,9 +94,12 @@ fn reply_article(content: String, article_id: u64) -> Result<u64, String> {
 }
 #[post]
 fn reply_all_articles() -> Result<(), String> {
-    let articles = fetch_lastest_article()?;
+    _reply_all_articles()
+}
+fn _reply_all_articles() -> Result<(), String> {
+    let articles = _fetch_lastest_article()?;
     for article in articles {
-        if !check_article_processing(article.id)? {
+        if !_check_article_processing(article.id)? {
             let url = "https://api.openai.com/v1/chat/completions";
 
             let mut headers = BTreeMap::new();
@@ -132,14 +143,14 @@ fn reply_all_articles() -> Result<(), String> {
     }
     Ok(())
 }
-#[timer_init]
+#[init]
 fn timer_init() {
-    set_timer!(5, timer_reply_all_articles);
+    set_timer!(core::time::Duration::from_secs(5), timer_reply_all_articles);
 }
 #[timer]
 fn timer_reply_all_articles() {
-    reply_all_articles();
-    set_timer!(5, timer_reply_all_articles);
+    _reply_all_articles();
+    set_timer!(core::time::Duration::from_secs(5), timer_reply_all_articles);
 }
 
 #[callback]
