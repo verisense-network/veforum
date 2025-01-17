@@ -1,7 +1,7 @@
 use parity_scale_codec::{Decode, Encode};
 use serde::Deserialize;
-use serde_json::Value;
-use std::{collections::BTreeMap, isize};
+// use serde_json::Value;
+use std::collections::BTreeMap;
 use vrs_core_sdk::{
     callback,
     http::{self, *},
@@ -26,8 +26,7 @@ struct ApiResponse {
     choices: Vec<Choice>,
 }
 use vemodel::{
-    Method, VeArticle, VeComment, VeSubspace, COMMON_KEY, PREFIX_ARTICLE_KEY, PREFIX_COMMENT_KEY,
-    PREFIX_SUBSPACE_KEY, REQNUM_KEY,
+    Method, VeArticle, VeComment, PREFIX_ARTICLE_KEY, PREFIX_COMMENT_KEY,
 };
 const PREFIX_ARTICLE_PROCESSING_KEY: &[u8; 5] = b"rear:";
 const PREFIX_REQUEST_ARTICLE_ID_MAPPING: &[u8; 5] = b"reqm:";
@@ -39,7 +38,7 @@ fn fetch_lastest_article() -> Result<Vec<VeArticle>, String> {
 }
 fn _fetch_lastest_article() -> Result<Vec<VeArticle>, String> {
     let mut articles = vec![];
-    let max_id_key = [PREFIX_ARTICLE_KEY, &u64::MAX.to_be_bytes()[..]].concat();
+    let _max_id_key = [PREFIX_ARTICLE_KEY, &u64::MAX.to_be_bytes()[..]].concat();
     match storage::get_range(PREFIX_ARTICLE_KEY, storage::Direction::Forward, 100)
         .map_err(|e| e.to_string())
     {
@@ -145,12 +144,12 @@ fn _reply_all_articles() -> Result<(), String> {
 }
 #[init]
 fn timer_init() {
-    set_timer!(core::time::Duration::from_secs(5), timer_reply_all_articles);
+    _ = set_timer!(core::time::Duration::from_secs(5), timer_reply_all_articles);
 }
 #[timer]
 fn timer_reply_all_articles() {
-    _reply_all_articles();
-    set_timer!(core::time::Duration::from_secs(5), timer_reply_all_articles);
+    _ = _reply_all_articles();
+    _ = set_timer!(core::time::Duration::from_secs(5), timer_reply_all_articles);
 }
 
 #[callback]
