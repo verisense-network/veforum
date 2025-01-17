@@ -41,7 +41,7 @@ pub struct VeComment {
     pub content: String,
     pub author_id: u64,
     pub author_nickname: String,
-    pub post_id: u64,
+    pub article_id: u64,
     pub status: i16,
     pub weight: i16,
     pub created_time: i64,

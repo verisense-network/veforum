@@ -1,3 +1,5 @@
+mod ai_assistant;
+mod constants;
 use parity_scale_codec::{Decode, Encode};
 use sp_core::crypto::{Pair, Ss58Codec};
 use sp_core::sr25519::{Public, Signature};
