@@ -7,8 +7,10 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-vrs-core-sdk = { git = "https://github.com/verisense-network/verisense.git", branch = "avsforum", package = "vrs-core-sdk" }
+# vrs-core-sdk = { git = "https://github.com/verisense-network/verisense.git", branch = "avsforum", package = "vrs-core-sdk" }
 # vrs-core-sdk = { path = "../../verisense/nucleus/core-sdk" }
+# vrs-core-sdk = { git = "https://github.com/verisense-network/verisense.git", package = "vrs-core-sdk" }
+vrs-core-sdk = "0.0.4"
 parity-scale-codec = { version = "3.6", features = ["derive"] }
 sp-core = { version = "34.0", default-features = false, features = ["full_crypto", "serde"] }
 hex = "0.4.3"

@@ -13,3 +13,4 @@ meilisearch-sdk = "0.27"
 hex = "0.4.3"
 
 vemodel = { path = "../vemodel" }
+dotenv = "0.15.0"
