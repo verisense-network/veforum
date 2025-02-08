@@ -1,7 +1,13 @@
 [workspace]
 members = [
-  "veavs"
-, "surrogate", "vemodel"]
+  "cli",
+  "nucleus",
+  # "surrogate",
+  "vemodel",
+]
 resolver = "2"
 
-
+[workspace.dependencies]
+parity-scale-codec = { version = "3.6", features = ["derive"] }
+serde = { version = "1.0", features = ["derive"] }
+vrs-core-sdk = { path = "../vrs-core-sdk/core-sdk", version = "0.0.4" }

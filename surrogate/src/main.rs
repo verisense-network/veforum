@@ -1,3 +1,5 @@
+mod rpc;
+
 use jsonrpsee::core::client::ClientT;
 use jsonrpsee::http_client::HttpClientBuilder;
 use jsonrpsee::rpc_params;
@@ -7,14 +9,17 @@ use parity_scale_codec::{Decode, Encode};
 // use serde_json::Value;
 use tokio::sync::mpsc;
 use tokio::time::{sleep, Duration};
-
+use std::fs::{File, OpenOptions};
+use std::io::{self, Write};
+use memmap2::MmapMut;
 use dotenv::dotenv;
 use std::env;
 
-use vemodel::{
-    Method, VeArticle, VeComment, VeSubspace, PREFIX_ARTICLE_KEY, PREFIX_COMMENT_KEY,
-    PREFIX_SUBSPACE_KEY,
-};
+use vemodel::{trie, CommentId, Community, CommunityId, Event, ThreadId};
+
+async fn fully_sync(mmap: &File) {
+    let mut mmap = unsafe { MmapMut::map_mut(&file)? };
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
