@@ -1,14 +1,15 @@
 [package]
-name = "vemodel"
+name = "aitonomy"
 version = "0.1.0"
 edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
 
 [dependencies]
 parity-scale-codec = { workspace = true }
 serde = { workspace = true }
 vrs-core-sdk = { workspace = true }
-
-[features]
-std = [
-    "vrs-core-sdk/std"
-]
+vemodel = { path = "../vemodel" }
+sha2 = { version = "0.10", default-features = false }
+regex = "1.11.1"
