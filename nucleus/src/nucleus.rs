@@ -2,15 +2,19 @@ use parity_scale_codec::{Decode, Encode};
 use vemodel::{args::*, trie, *};
 use vrs_core_sdk::{get, post, storage, timer, AccountId};
 
+// TODO authorization
+#[post]
+pub fn set_llm_key(key: String) -> Result<(), String> {
+    crate::agent::set_llm_key(key).map_err(|e| e.to_string())
+}
+
 #[post]
 pub fn create_community(
     creator: AccountId,
     arg: CreateCommunityArg,
 ) -> Result<CommunityId, String> {
-    let id = crate::community_id(&arg.name).ok_or(
-        "Community name is invalid, it should only contains `a-zA-Z0-9_-` with length <= 24"
-            .to_string(),
-    )?;
+    let id = crate::community_id(&arg.name)
+        .ok_or("Community name should only contains `a-zA-Z0-9_-` with length <= 24".to_string())?;
     let key = trie::to_community_key(id);
     let community = crate::find::<Community>(&key)?;
     community
@@ -25,26 +29,24 @@ pub fn create_community(
     } = arg;
     let community = Community {
         id,
-        name,
+        name: name.clone(),
         slug,
         creator,
         description,
-        prompt,
         ed25519_pubkey: [0u8; 32],
         // TODO: WaitingTx
         status: CommunityStatus::Active,
         created_time: timer::now() as i64,
     };
-    if let Ok(_) = storage::put(&key, community.encode()).map_err(|e| e.to_string()) {
-        crate::save_event(Event::CommunityCreated(id))?;
-    }
+    storage::put(&key, community.encode()).map_err(|e| e.to_string())?;
+    crate::save_event(Event::CommunityCreated(id))?;
+    crate::agent::init_agent(&name, prompt)?;
     Ok(id)
 }
 
 #[post]
 pub fn activate_community(community: String, tx: [u8; 32]) -> Result<(), String> {
-    let community_id =
-        crate::community_id(&community).ok_or("Community name is invalid".to_string())?;
+    let community_id = crate::community_id(&community).ok_or("Invalid name".to_string())?;
     let key = trie::to_community_key(community_id);
     let mut community = crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
     // TODO check tx_hash
@@ -63,7 +65,7 @@ pub fn post_thread(author: AccountId, arg: PostThreadArg) -> Result<ContentId, S
         mention,
     } = arg;
     let community_id =
-        crate::community_id(&community).ok_or("Community name is invalid".to_string())?;
+        crate::community_id(&community).ok_or("Invalid community name".to_string())?;
     let key = trie::to_community_key(community_id);
     let community = crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
     (community.status == CommunityStatus::Active)
@@ -123,9 +125,9 @@ pub fn get_community(id: CommunityId) -> Result<Option<Community>, String> {
 
 #[get]
 pub fn get_raw_contents(id: ContentId, limit: u32) -> Result<Vec<(ContentId, Vec<u8>)>, String> {
-    (limit <= 100)
+    (limit <= 1000)
         .then(|| ())
-        .ok_or("limit should be no more than 100".to_string())?;
+        .ok_or("limit should be no more than 1000".to_string())?;
     let key = trie::to_content_key(id);
     let result = storage::get_range(key, storage::Direction::Forward, limit as usize)
         .map_err(|e| e.to_string())?;
@@ -140,9 +142,9 @@ pub fn get_raw_contents(id: ContentId, limit: u32) -> Result<Vec<(ContentId, Vec
 
 #[get]
 pub fn get_events(id: EventId, limit: u32) -> Result<Vec<(EventId, Event)>, String> {
-    (limit <= 100)
+    (limit <= 1000)
         .then(|| ())
-        .ok_or("limit should be no more than 100".to_string())?;
+        .ok_or("limit should be no more than 1000".to_string())?;
     let key = trie::to_event_key(id);
     let result = storage::get_range(key, storage::Direction::Forward, limit as usize)
         .map_err(|e| e.to_string())?;

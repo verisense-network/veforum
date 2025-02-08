@@ -25,7 +25,6 @@ pub async fn post_thread<T: ClientT>(
     args: PostThreadArg,
 ) -> Result<ContentId, Box<dyn std::error::Error>> {
     let payload = hex::encode((signer, args).encode());
-    println!("{}", payload);
     let params = rpc_params![nucleus_id.to_string(), "post_thread", payload];
     let hex_str: String = client.request("nucleus_post", params).await?;
     let hex = hex::decode(&hex_str)?;

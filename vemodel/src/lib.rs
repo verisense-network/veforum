@@ -37,7 +37,6 @@ pub struct Community {
     pub name: String,
     pub slug: String,
     pub description: Vec<u8>,
-    pub prompt: String,
     pub creator: AccountId,
     pub ed25519_pubkey: [u8; 32],
     pub status: CommunityStatus,
