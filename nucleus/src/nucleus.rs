@@ -141,10 +141,20 @@ pub fn get_raw_contents(id: ContentId, limit: u32) -> Result<Vec<(ContentId, Vec
 }
 
 #[get]
+pub fn get_raw_content(id: ContentId) -> Result<Option<Vec<u8>>, String> {
+    let key = trie::to_content_key(id);
+    storage::get(&key).map_err(|e| e.to_string())
+}
+
+#[get]
 pub fn get_events(id: EventId, limit: u32) -> Result<Vec<(EventId, Event)>, String> {
     (limit <= 1000)
         .then(|| ())
         .ok_or("limit should be no more than 1000".to_string())?;
+    let max_id = crate::allocate_event_id()?;
+    if id > max_id {
+        return Ok(vec![]);
+    }
     let key = trie::to_event_key(id);
     let result = storage::get_range(key, storage::Direction::Forward, limit as usize)
         .map_err(|e| e.to_string())?;

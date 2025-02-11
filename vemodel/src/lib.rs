@@ -7,7 +7,7 @@ pub type CommunityId = u32;
 pub type EventId = u64;
 pub type ContentId = u128;
 
-#[derive(Debug, Decode, Encode, Deserialize, Serialize)]
+#[derive(Debug, Decode, Encode, Deserialize, Serialize, Clone, Copy)]
 pub enum Event {
     #[codec(index = 0)]
     CommunityCreated(CommunityId),
