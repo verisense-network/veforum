@@ -5,6 +5,19 @@ use jsonrpsee::{core::client::ClientT, rpc_params};
 use parity_scale_codec::{Decode, Encode};
 use vemodel::{args::*, *};
 
+// TODO
+pub async fn set_openai_key<T: ClientT>(
+    client: T,
+    nucleus_id: AccountId,
+    key: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let payload = hex::encode(key.encode());
+    let params = rpc_params![nucleus_id.to_string(), "set_llm_key", payload];
+    let hex_str: String = client.request("nucleus_post", params).await?;
+    let hex = hex::decode(&hex_str)?;
+    Result::<(), String>::decode(&mut &hex[..])?.map_err(|e| e.into())
+}
+
 pub async fn create_community<T: ClientT>(
     client: T,
     nucleus_id: AccountId,
@@ -73,12 +86,13 @@ pub async fn get_contents<T: ClientT>(
     let hex = hex::decode(&hex_str)?;
     let r = Result::<Vec<(ContentId, Vec<u8>)>, String>::decode(&mut &hex[..])??;
     for (id, data) in r {
-        if id & 0x00000000_00000000_00000000_ffffffff == 0 {
-            let thread = Thread::decode(&mut &data[..])?;
-            println!("{:?}: {:?}", id, thread);
+        if id & 0xffffffff == 0 {
+            let thread =
+                Thread::decode(&mut &data[..]).inspect_err(|_| println!("error at {}", id))?;
+            println!("{}: {}", id, serde_json::to_string(&thread).unwrap());
         } else {
             let comment = Comment::decode(&mut &data[..])?;
-            println!("{:?}: {:?}", id, comment);
+            println!("{}: {}", id, serde_json::to_string(&comment).unwrap());
         }
     }
     Ok(())
@@ -154,6 +168,13 @@ pub async fn main() {
                         println!("{:?}: {:?}", id, event);
                     }
                 }
+                Err(e) => eprintln!("{:?}", e),
+            }
+        }
+        SubCmd::SetKey(cmd) => {
+            let client = build_client(&cli.options.get_rpc());
+            match set_openai_key(client, nucleus_id, cmd.key).await {
+                Ok(_) => println!("Key set"),
                 Err(e) => eprintln!("{:?}", e),
             }
         }

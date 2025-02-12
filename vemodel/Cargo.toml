@@ -7,6 +7,8 @@ edition = "2021"
 parity-scale-codec = { workspace = true }
 serde = { workspace = true }
 vrs-core-sdk = { workspace = true }
+sha2 = { version = "0.10", default-features = false }
+hex = "0.4"
 
 [features]
 std = [

@@ -5,7 +5,7 @@ use vrs_core_sdk::{get, post, storage, timer, AccountId};
 // TODO authorization
 #[post]
 pub fn set_llm_key(key: String) -> Result<(), String> {
-    crate::agent::set_llm_key(key).map_err(|e| e.to_string())
+    crate::agent::set_llm_key(crate::agent::OPENAI, key).map_err(|e| e.to_string())
 }
 
 #[post]
@@ -13,7 +13,7 @@ pub fn create_community(
     creator: AccountId,
     arg: CreateCommunityArg,
 ) -> Result<CommunityId, String> {
-    let id = crate::community_id(&arg.name)
+    let id = crate::name_to_community_id(&arg.name)
         .ok_or("Community name should only contains `a-zA-Z0-9_-` with length <= 24".to_string())?;
     let key = trie::to_community_key(id);
     let community = crate::find::<Community>(&key)?;
@@ -21,6 +21,7 @@ pub fn create_community(
         .is_none()
         .then(|| ())
         .ok_or("community already exists".to_string())?;
+    crate::agent::get_llm_key(crate::agent::OPENAI)?;
     let CreateCommunityArg {
         name,
         slug,
@@ -28,7 +29,6 @@ pub fn create_community(
         prompt,
     } = arg;
     let community = Community {
-        id,
         name: name.clone(),
         slug,
         creator,
@@ -46,7 +46,7 @@ pub fn create_community(
 
 #[post]
 pub fn activate_community(community: String, tx: [u8; 32]) -> Result<(), String> {
-    let community_id = crate::community_id(&community).ok_or("Invalid name".to_string())?;
+    let community_id = crate::name_to_community_id(&community).ok_or("Invalid name".to_string())?;
     let key = trie::to_community_key(community_id);
     let mut community = crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
     // TODO check tx_hash
@@ -62,27 +62,30 @@ pub fn post_thread(author: AccountId, arg: PostThreadArg) -> Result<ContentId, S
         community,
         title,
         content,
+        image,
         mention,
     } = arg;
     let community_id =
-        crate::community_id(&community).ok_or("Invalid community name".to_string())?;
+        crate::name_to_community_id(&community).ok_or("Invalid community name".to_string())?;
     let key = trie::to_community_key(community_id);
     let community = crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
     (community.status == CommunityStatus::Active)
         .then(|| ())
         .ok_or("Posting threads to this community is forbidden right now!".to_string())?;
-    let id = crate::allocate_thread_id(community.id)?;
+    let id = crate::allocate_thread_id(community_id)?;
     let key = trie::to_content_key(id);
     let thread = Thread {
-        id,
+        id: hex::encode(id.encode()),
         title,
         content,
+        image,
         author,
         mention,
         created_time: timer::now() as i64,
     };
     storage::put(&key, thread.encode()).map_err(|e| e.to_string())?;
     crate::save_event(Event::ThreadPosted(id))?;
+    crate::agent::create_session_and_run(&thread)?;
     Ok(id)
 }
 
@@ -91,6 +94,7 @@ pub fn post_comment(author: AccountId, arg: PostCommentArg) -> Result<ContentId,
     let PostCommentArg {
         thread,
         content,
+        image,
         mention,
         reply_to,
     } = arg;
@@ -100,13 +104,14 @@ pub fn post_comment(author: AccountId, arg: PostCommentArg) -> Result<ContentId,
     (community.status == CommunityStatus::Active)
         .then(|| ())
         .ok_or("Posting comments to this community is forbidden right now!".to_string())?;
-    let thread_id = trie::to_content_key(thread);
-    let _thread = crate::find::<Thread>(&thread_id)?.ok_or("Thread not found".to_string())?;
+    let thread_key = trie::to_content_key(thread);
+    crate::find::<Thread>(&thread_key)?.ok_or("Thread not found".to_string())?;
     let id = crate::allocate_comment_id(thread)?;
     let key = trie::to_content_key(id);
     let comment = Comment {
-        id,
+        id: hex::encode(id.encode()),
         content,
+        image,
         author,
         mention,
         reply_to,
@@ -128,6 +133,9 @@ pub fn get_raw_contents(id: ContentId, limit: u32) -> Result<Vec<(ContentId, Vec
     (limit <= 1000)
         .then(|| ())
         .ok_or("limit should be no more than 1000".to_string())?;
+    if id > trie::MAX_CONTENT_ID {
+        return Ok(vec![]);
+    }
     let key = trie::to_content_key(id);
     let result = storage::get_range(key, storage::Direction::Forward, limit as usize)
         .map_err(|e| e.to_string())?;
@@ -151,8 +159,7 @@ pub fn get_events(id: EventId, limit: u32) -> Result<Vec<(EventId, Event)>, Stri
     (limit <= 1000)
         .then(|| ())
         .ok_or("limit should be no more than 1000".to_string())?;
-    let max_id = crate::allocate_event_id()?;
-    if id > max_id {
+    if id > trie::MAX_EVENT_ID {
         return Ok(vec![]);
     }
     let key = trie::to_event_key(id);

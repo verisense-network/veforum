@@ -1,5 +1,6 @@
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 pub use vrs_core_sdk::AccountId;
 
@@ -33,36 +34,58 @@ pub enum CommunityStatus {
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
 pub struct Community {
-    pub id: CommunityId,
     pub name: String,
     pub slug: String,
-    pub description: Vec<u8>,
+    pub description: String,
     pub creator: AccountId,
     pub ed25519_pubkey: [u8; 32],
     pub status: CommunityStatus,
     pub created_time: i64,
 }
 
+impl Community {
+    pub fn id(&self) -> CommunityId {
+        let mut hasher = Sha256::new();
+        hasher.update(self.name.as_bytes());
+        let v = hasher.finalize();
+        CommunityId::from_be_bytes(v[..4].try_into().unwrap())
+    }
+
+    pub fn agent_account(&self) -> AccountId {
+        let mut hasher = Sha256::new();
+        hasher.update(self.name.as_bytes());
+        let v: [u8; 32] = hasher.finalize().into();
+        AccountId::from(v)
+    }
+}
+
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
 pub struct Thread {
-    pub id: ContentId,
+    pub id: String,
     pub title: String,
-    pub content: Vec<u8>,
+    pub content: String,
+    pub image: Option<String>,
     pub author: AccountId,
     pub mention: Vec<AccountId>,
     pub created_time: i64,
 }
 
 impl Thread {
+    pub fn id(&self) -> ContentId {
+        let id = hex::decode(&self.id).expect("invalid thread id");
+        ContentId::decode(&mut &id[..]).expect("invalid thread id")
+    }
+
     pub fn community_id(&self) -> CommunityId {
-        (self.id >> 64) as CommunityId
+        (self.id() >> 64) as CommunityId
     }
 }
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
 pub struct Comment {
-    pub id: ContentId,
-    pub content: Vec<u8>,
+    pub id: String,
+    pub content: String,
+    pub image: Option<String>,
     pub author: AccountId,
     pub mention: Vec<AccountId>,
     pub reply_to: Option<ContentId>,
@@ -70,16 +93,28 @@ pub struct Comment {
 }
 
 impl Comment {
+    pub fn id(&self) -> ContentId {
+        let id = hex::decode(&self.id).expect("invalid thread id");
+        ContentId::decode(&mut &id[..]).expect("invalid thread id")
+    }
+
     pub fn community_id(&self) -> CommunityId {
-        (self.id >> 64) as CommunityId
+        (self.id() >> 64) as CommunityId
     }
 }
 
 pub mod trie {
     use super::*;
-    pub const COMMUNITIES_KEY: u64 = 0x00000001_00000000;
-    pub const CONTENTS_KEY: u128 = 0x00000002_00000000_00000000_00000000;
-    pub const EVENTS_KEY: u128 = 0x00;
+    pub const MIN_COMMUNITIE_KEY: u64 = 0x00000001_00000000;
+    pub const MAX_COMMUNITY_KEY: u64 = 0x00000001_ffffffff;
+    pub const MAX_COMMUNITY_ID: u32 = 0xffffffff;
+
+    pub const MIN_CONTENT_KEY: u128 = 0x00000002_00000000_00000000_00000000;
+    pub const MAX_CONTENT_KEY: u128 = 0x00000002_ffffffff_ffffffff_ffffffff;
+    pub const MAX_CONTENT_ID: u128 = 0x00000000_ffffffff_ffffffff_ffffffff;
+
+    pub const MAX_EVENT_KEY: u128 = 0xffffffff_ffffffff;
+    pub const MAX_EVENT_ID: u64 = 0xffffffff_ffffffff;
 
     /// check if the content id is a thread
     pub fn is_thread(content_id: ContentId) -> bool {
@@ -87,7 +122,7 @@ pub mod trie {
     }
 
     pub fn to_community_key(community_id: CommunityId) -> Vec<u8> {
-        let key = COMMUNITIES_KEY | community_id as u64;
+        let key = MIN_COMMUNITIE_KEY | community_id as u64;
         key.to_be_bytes().to_vec()
     }
 
@@ -96,11 +131,11 @@ pub mod trie {
             .try_into()
             .map_err(|_| "invalid community id".to_string())?;
         let id = u64::from_be_bytes(key);
-        Ok((id & u32::MAX as u64) as CommunityId)
+        Ok(id as CommunityId)
     }
 
     pub fn to_content_key(content_id: ContentId) -> Vec<u8> {
-        let key = CONTENTS_KEY | content_id;
+        let key = MIN_CONTENT_KEY | content_id;
         key.to_be_bytes().to_vec()
     }
 
@@ -108,8 +143,12 @@ pub mod trie {
         let key = key
             .try_into()
             .map_err(|_| "invalid content id".to_string())?;
-        let id = u128::from_be_bytes(key);
-        Ok(id & 0x00000000_ffffffff_ffffffff_ffffffff)
+        let key = u128::from_be_bytes(key);
+        if key <= MAX_CONTENT_KEY && key >= MIN_CONTENT_KEY {
+            Ok(key & MAX_CONTENT_ID)
+        } else {
+            Err("invalid content id".to_string())
+        }
     }
 
     pub fn to_event_key(event_id: EventId) -> Vec<u8> {
@@ -119,11 +158,11 @@ pub mod trie {
 
     pub fn to_event_id(key: &[u8]) -> Result<EventId, String> {
         let key = key.try_into().map_err(|_| "invalid event id".to_string())?;
-        let id = u128::from_be_bytes(key);
-        if id > u64::MAX as u128 {
-            Err("invalid event id".to_string())
+        let key = u128::from_be_bytes(key);
+        if key <= MAX_EVENT_KEY {
+            Ok(key as EventId)
         } else {
-            Ok((id & u64::MAX as u128) as EventId)
+            Err("invalid event id".to_string())
         }
     }
 }
@@ -137,7 +176,7 @@ pub mod args {
     pub struct CreateCommunityArg {
         pub name: String,
         pub slug: String,
-        pub description: Vec<u8>,
+        pub description: String,
         pub prompt: String,
     }
 
@@ -145,14 +184,16 @@ pub mod args {
     pub struct PostThreadArg {
         pub community: String,
         pub title: String,
-        pub content: Vec<u8>,
+        pub content: String,
+        pub image: Option<String>,
         pub mention: Vec<AccountId>,
     }
 
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
     pub struct PostCommentArg {
         pub thread: ContentId,
-        pub content: Vec<u8>,
+        pub content: String,
+        pub image: Option<String>,
         pub mention: Vec<AccountId>,
         pub reply_to: Option<ContentId>,
     }
