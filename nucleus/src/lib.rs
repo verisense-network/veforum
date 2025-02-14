@@ -1,7 +1,9 @@
+mod agent;
 mod nucleus;
+mod trie;
 
 use sha2::{Digest, Sha256};
-use vemodel::{trie, CommunityId, ContentId, Event, EventId};
+use vemodel::{CommunityId, ContentId, Event, EventId};
 use vrs_core_sdk::{
     codec::{Decode, Encode},
     storage,
@@ -16,11 +18,11 @@ pub(crate) fn find<T: Decode>(key: &[u8]) -> Result<Option<T>, String> {
         .map_err(|e| e.to_string())
 }
 
-pub(crate) fn community_id(community: &str) -> Option<CommunityId> {
+pub(crate) fn name_to_community_id(name: &str) -> Option<CommunityId> {
     let re = regex::Regex::new(COMMUNITY_REGEX).unwrap();
-    re.captures(community).and_then(|_| {
+    re.captures(name).and_then(|_| {
         let mut hasher = Sha256::new();
-        hasher.update(community.as_bytes());
+        hasher.update(name.as_bytes());
         let v = hasher.finalize();
         Some(CommunityId::from_be_bytes(v[..4].try_into().unwrap()))
     })
@@ -41,7 +43,7 @@ pub(crate) fn allocate_event_id() -> Result<EventId, String> {
 }
 
 pub(crate) fn allocate_thread_id(community_id: CommunityId) -> Result<ContentId, String> {
-    let start_key = trie::CONTENTS_KEY | ((community_id as u128) << 64);
+    let start_key = trie::MIN_CONTENT_KEY | ((community_id as u128) << 64);
     let end_key = start_key | u64::MAX as u128;
     let r = storage::search(&end_key.to_be_bytes()[..], storage::Direction::Reverse)
         .map_err(|e| e.to_string())?
@@ -59,7 +61,7 @@ pub(crate) fn allocate_comment_id(thread_id: ContentId) -> Result<ContentId, Str
     (thread_id & 0xffffffff == 0)
         .then(|| ())
         .ok_or("Invalid thread id".to_string())?;
-    let start_key = trie::CONTENTS_KEY | thread_id;
+    let start_key = trie::MIN_CONTENT_KEY | thread_id;
     let end_key = start_key | u32::MAX as u128;
     let r = storage::search(&end_key.to_be_bytes()[..], storage::Direction::Reverse)
         .map_err(|e| e.to_string())?

@@ -4,14 +4,33 @@ use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
 use jsonrpsee::{core::client::ClientT, rpc_params};
 use parity_scale_codec::{Decode, Encode};
 use vemodel::{args::*, *};
+use vrs_core_sdk::NucleusId;
+
+// TODO
+pub async fn set_openai_key<T: ClientT>(
+    client: T,
+    nucleus_id: NucleusId,
+    key: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let payload = hex::encode(key.encode());
+    let params = rpc_params![nucleus_id.to_string(), "set_llm_key", payload];
+    let hex_str: String = client.request("nucleus_post", params).await?;
+    let hex = hex::decode(&hex_str)?;
+    Result::<(), String>::decode(&mut &hex[..])?.map_err(|e| e.into())
+}
 
 pub async fn create_community<T: ClientT>(
     client: T,
-    nucleus_id: AccountId,
-    signer: AccountId,
+    nucleus_id: NucleusId,
     args: CreateCommunityArg,
 ) -> Result<CommunityId, Box<dyn std::error::Error>> {
-    let payload = hex::encode((signer, args).encode());
+    let args = Args {
+        signature: Signature([0u8; 64]),
+        signer: AccountId([0u8; 32]),
+        nonce: 0,
+        payload: args,
+    };
+    let payload = hex::encode(args.encode());
     let params = rpc_params![nucleus_id.to_string(), "create_community", payload];
     let hex_str: String = client.request("nucleus_post", params).await?;
     let hex = hex::decode(&hex_str)?;
@@ -20,12 +39,16 @@ pub async fn create_community<T: ClientT>(
 
 pub async fn post_thread<T: ClientT>(
     client: T,
-    nucleus_id: AccountId,
-    signer: AccountId,
+    nucleus_id: NucleusId,
     args: PostThreadArg,
 ) -> Result<ContentId, Box<dyn std::error::Error>> {
-    let payload = hex::encode((signer, args).encode());
-    println!("{}", payload);
+    let args = Args {
+        signature: Signature([0u8; 64]),
+        signer: AccountId([0u8; 32]),
+        nonce: 0,
+        payload: args,
+    };
+    let payload = hex::encode(args.encode());
     let params = rpc_params![nucleus_id.to_string(), "post_thread", payload];
     let hex_str: String = client.request("nucleus_post", params).await?;
     let hex = hex::decode(&hex_str)?;
@@ -34,11 +57,16 @@ pub async fn post_thread<T: ClientT>(
 
 pub async fn post_comment<T: ClientT>(
     client: T,
-    nucleus_id: AccountId,
-    signer: AccountId,
+    nucleus_id: NucleusId,
     args: PostCommentArg,
 ) -> Result<ContentId, Box<dyn std::error::Error>> {
-    let payload = hex::encode((signer, args).encode());
+    let args = Args {
+        signature: Signature([0u8; 64]),
+        signer: AccountId([0u8; 32]),
+        nonce: 0,
+        payload: args,
+    };
+    let payload = hex::encode(args.encode());
     let params = rpc_params![nucleus_id.to_string(), "post_comment", payload];
     let hex_str: String = client.request("nucleus_post", params).await?;
     let hex = hex::decode(&hex_str)?;
@@ -47,7 +75,7 @@ pub async fn post_comment<T: ClientT>(
 
 pub async fn get_community<T: ClientT>(
     client: T,
-    nucleus_id: AccountId,
+    nucleus_id: NucleusId,
     community_id: CommunityId,
 ) -> Result<Option<Community>, Box<dyn std::error::Error>> {
     let params = rpc_params![
@@ -62,7 +90,7 @@ pub async fn get_community<T: ClientT>(
 
 pub async fn get_contents<T: ClientT>(
     client: T,
-    nucleus_id: AccountId,
+    nucleus_id: NucleusId,
     content_id: ContentId,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let params = rpc_params![
@@ -74,12 +102,13 @@ pub async fn get_contents<T: ClientT>(
     let hex = hex::decode(&hex_str)?;
     let r = Result::<Vec<(ContentId, Vec<u8>)>, String>::decode(&mut &hex[..])??;
     for (id, data) in r {
-        if id & 0x00000000_00000000_00000000_ffffffff == 0 {
-            let thread = Thread::decode(&mut &data[..])?;
-            println!("{:?}: {:?}", id, thread);
+        if id & 0xffffffff == 0 {
+            let thread =
+                Thread::decode(&mut &data[..]).inspect_err(|_| println!("error at {}", id))?;
+            println!("{}: {}", id, serde_json::to_string(&thread).unwrap());
         } else {
             let comment = Comment::decode(&mut &data[..])?;
-            println!("{:?}: {:?}", id, comment);
+            println!("{}: {}", id, serde_json::to_string(&comment).unwrap());
         }
     }
     Ok(())
@@ -87,7 +116,7 @@ pub async fn get_contents<T: ClientT>(
 
 pub async fn get_events<T: ClientT>(
     client: T,
-    nucleus_id: AccountId,
+    nucleus_id: NucleusId,
     event_id: EventId,
 ) -> Result<Vec<(EventId, Event)>, Box<dyn std::error::Error>> {
     let params = rpc_params![
@@ -111,25 +140,25 @@ use clap::Parser;
 pub async fn main() {
     let cli = Cli::parse();
     let nucleus_id = cli.options.get_nucleus().expect("invalid nucleus id");
-    let account_id = cli.options.get_nucleus().expect("invalid account id");
+    // let account_id = cli.options.get_nucleus().expect("invalid account id");
     match cli.cmd {
         SubCmd::CreateCommunity(cmd) => {
             let client = build_client(&cli.options.get_rpc());
-            match create_community(client, nucleus_id, account_id, cmd.into()).await {
+            match create_community(client, nucleus_id, cmd.into()).await {
                 Ok(id) => println!("{:2x}", id),
                 Err(e) => eprintln!("{:?}", e),
             }
         }
         SubCmd::PostThread(cmd) => {
             let client = build_client(&cli.options.get_rpc());
-            match post_thread(client, nucleus_id, account_id, cmd.into()).await {
+            match post_thread(client, nucleus_id, cmd.into()).await {
                 Ok(id) => println!("Thread ID = {:2x}", id),
                 Err(e) => eprintln!("{:?}", e),
             }
         }
         SubCmd::PostComment(cmd) => {
             let client = build_client(&cli.options.get_rpc());
-            match post_comment(client, nucleus_id, account_id, cmd.into()).await {
+            match post_comment(client, nucleus_id, cmd.into()).await {
                 Ok(id) => println!("{}", id),
                 Err(e) => eprintln!("{:?}", e),
             }
@@ -155,6 +184,13 @@ pub async fn main() {
                         println!("{:?}: {:?}", id, event);
                     }
                 }
+                Err(e) => eprintln!("{:?}", e),
+            }
+        }
+        SubCmd::SetKey(cmd) => {
+            let client = build_client(&cli.options.get_rpc());
+            match set_openai_key(client, nucleus_id, cmd.key).await {
+                Ok(_) => println!("Key set"),
                 Err(e) => eprintln!("{:?}", e),
             }
         }

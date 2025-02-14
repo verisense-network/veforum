@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use vemodel::*;
+use vrs_core_sdk::NucleusId;
 
 #[derive(Debug, Parser)]
 #[command(author = "Verisense Team <dev@verisense.network>", version)]
@@ -64,9 +65,9 @@ impl Options {
         }
     }
 
-    pub(crate) fn get_nucleus(&self) -> Result<AccountId, String> {
+    pub(crate) fn get_nucleus(&self) -> Result<NucleusId, String> {
         use std::str::FromStr;
-        let account = AccountId::from_str(&self.nucleus);
+        let account = NucleusId::from_str(&self.nucleus);
         match account {
             Ok(account) => Ok(account),
             Err(_) => Err("Invalid nucleus address".to_string()),
@@ -82,6 +83,7 @@ pub enum SubCmd {
     GetCommunity(GetCommunityCommand),
     GetContent(GetContentCommand),
     GetEvents(GetEventsCommand),
+    SetKey(SetKeyCommand),
 }
 
 #[derive(Debug, Parser)]
@@ -123,13 +125,13 @@ use std::io::prelude::*;
 
 impl Into<vemodel::args::CreateCommunityArg> for CommunityCommand {
     fn into(self) -> vemodel::args::CreateCommunityArg {
-        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(self.description.as_bytes()).unwrap();
-        let stream = encoder.finish().unwrap();
+        // let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        // encoder.write_all(self.description.as_bytes()).unwrap();
+        // let stream = encoder.finish().unwrap();
         vemodel::args::CreateCommunityArg {
             name: self.name,
             slug: self.slug,
-            description: stream,
+            description: self.description,
             prompt: self.prompt,
         }
     }
@@ -148,13 +150,14 @@ pub struct ThreadCommand {
 
 impl Into<vemodel::args::PostThreadArg> for ThreadCommand {
     fn into(self) -> vemodel::args::PostThreadArg {
-        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(self.content.as_bytes()).unwrap();
-        let stream = encoder.finish().unwrap();
+        // let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        // encoder.write_all(self.content.as_bytes()).unwrap();
+        // let stream = encoder.finish().unwrap();
         vemodel::args::PostThreadArg {
             community: self.community,
             title: self.title,
-            content: stream,
+            content: self.content,
+            image: None,
             mention: vec![],
         }
     }
@@ -171,14 +174,22 @@ pub struct CommentCommand {
 
 impl Into<vemodel::args::PostCommentArg> for CommentCommand {
     fn into(self) -> vemodel::args::PostCommentArg {
-        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(self.content.as_bytes()).unwrap();
-        let stream = encoder.finish().unwrap();
+        // let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        // encoder.write_all(self.content.as_bytes()).unwrap();
+        // let stream = encoder.finish().unwrap();
         vemodel::args::PostCommentArg {
             thread: self.thread.parse().expect("invalid thread id"),
-            content: stream,
+            content: self.content,
+            image: None,
             mention: vec![],
             reply_to: None,
         }
     }
+}
+
+#[derive(Debug, Parser)]
+#[command(about = "Set a LLM key")]
+pub struct SetKeyCommand {
+    #[arg(long)]
+    pub key: String,
 }
