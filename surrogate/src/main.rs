@@ -5,12 +5,13 @@ mod storage;
 use meilisearch_sdk::client::*;
 use std::str::FromStr;
 use vemodel::*;
+use vrs_core_sdk::NucleusId;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db = storage::open("./data")?;
     let origin = rpc::build_client("http://localhost:9944");
-    let nucleus_id = AccountId::from_str("kGk1FJCoPv4JTxez4aaWgGVaTPvsc2YPStz6ZWni4e61FVUW6")?;
+    let nucleus_id = NucleusId::from_str("kGk1FJCoPv4JTxez4aaWgGVaTPvsc2YPStz6ZWni4e61FVUW6")?;
     let indexer = Client::new("http://localhost:7700", Some("masterkey"))?;
 
     loop {

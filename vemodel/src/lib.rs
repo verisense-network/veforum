@@ -1,12 +1,15 @@
+use borsh::{BorshDeserialize, BorshSerialize};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-pub use vrs_core_sdk::AccountId;
-
 pub type CommunityId = u32;
 pub type EventId = u64;
 pub type ContentId = u128;
+
+pub fn is_comment(content_id: ContentId) -> bool {
+    content_id & 0xffffffff != 0
+}
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize, Clone, Copy)]
 pub enum Event {
@@ -37,8 +40,9 @@ pub struct Community {
     pub name: String,
     pub slug: String,
     pub description: String,
+    pub prompt: String,
     pub creator: AccountId,
-    pub ed25519_pubkey: [u8; 32],
+    pub agent_pubkey: AccountId,
     pub status: CommunityStatus,
     pub created_time: i64,
 }
@@ -55,7 +59,7 @@ impl Community {
         let mut hasher = Sha256::new();
         hasher.update(self.name.as_bytes());
         let v: [u8; 32] = hasher.finalize().into();
-        AccountId::from(v)
+        AccountId(v)
     }
 }
 
@@ -88,7 +92,7 @@ pub struct Comment {
     pub image: Option<String>,
     pub author: AccountId,
     pub mention: Vec<AccountId>,
-    pub reply_to: Option<ContentId>,
+    pub reply_to: Option<String>,
     pub created_time: i64,
 }
 
@@ -103,74 +107,121 @@ impl Comment {
     }
 }
 
-pub mod trie {
-    use super::*;
-    pub const MIN_COMMUNITIE_KEY: u64 = 0x00000001_00000000;
-    pub const MAX_COMMUNITY_KEY: u64 = 0x00000001_ffffffff;
-    pub const MAX_COMMUNITY_ID: u32 = 0xffffffff;
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    Eq,
+    PartialEq,
+    Decode,
+    Encode,
+    Deserialize,
+    Serialize,
+    BorshSerialize,
+    BorshDeserialize,
+)]
+pub struct AccountId(pub [u8; 32]);
 
-    pub const MIN_CONTENT_KEY: u128 = 0x00000002_00000000_00000000_00000000;
-    pub const MAX_CONTENT_KEY: u128 = 0x00000002_ffffffff_ffffffff_ffffffff;
-    pub const MAX_CONTENT_ID: u128 = 0x00000000_ffffffff_ffffffff_ffffffff;
+pub type Pubkey = AccountId;
 
-    pub const MAX_EVENT_KEY: u128 = 0xffffffff_ffffffff;
-    pub const MAX_EVENT_ID: u64 = 0xffffffff_ffffffff;
+const MAX_BASE58_LEN: usize = 44;
 
-    /// check if the content id is a thread
-    pub fn is_thread(content_id: ContentId) -> bool {
-        content_id & 0xffffffff == 0
+impl std::str::FromStr for AccountId {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        (s.len() <= MAX_BASE58_LEN)
+            .then(|| ())
+            .ok_or("invalid account id".to_string())?;
+        bs58::decode(s.as_bytes())
+            .into_array_const::<32>()
+            .map(|a| Self(a))
+            .map_err(|_| "invalid account id".to_string())
     }
+}
 
-    pub fn to_community_key(community_id: CommunityId) -> Vec<u8> {
-        let key = MIN_COMMUNITIE_KEY | community_id as u64;
-        key.to_be_bytes().to_vec()
+impl std::fmt::Display for AccountId {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        bs58::encode(&self.encode()).into_string().fmt(f)
     }
+}
 
-    pub fn to_community_id(key: &[u8]) -> Result<CommunityId, String> {
-        let key = key
-            .try_into()
-            .map_err(|_| "invalid community id".to_string())?;
-        let id = u64::from_be_bytes(key);
-        Ok(id as CommunityId)
+#[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
+pub struct Account {
+    pub nonce: u64,
+    pub pubkey: Pubkey,
+    pub alias: Option<String>,
+}
+
+#[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
+pub enum AccountData {
+    Pubkey(Account),
+    AliasOf(AccountId),
+}
+
+impl Account {
+    pub fn name(&self) -> String {
+        self.alias
+            .clone()
+            .unwrap_or_else(|| self.pubkey.to_string())
     }
+}
 
-    pub fn to_content_key(content_id: ContentId) -> Vec<u8> {
-        let key = MIN_CONTENT_KEY | content_id;
-        key.to_be_bytes().to_vec()
-    }
+#[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
+pub struct TokenMetadata {
+    pub symbol: String,
+    pub total_issuance: u64,
+    pub decimals: u8,
+    pub contract: AccountId,
+}
 
-    pub fn to_content_id(key: &[u8]) -> Result<ContentId, String> {
-        let key = key
-            .try_into()
-            .map_err(|_| "invalid content id".to_string())?;
-        let key = u128::from_be_bytes(key);
-        if key <= MAX_CONTENT_KEY && key >= MIN_CONTENT_KEY {
-            Ok(key & MAX_CONTENT_ID)
-        } else {
-            Err("invalid content id".to_string())
-        }
-    }
+#[derive(Debug, Clone, Copy, Decode, Encode)]
+pub struct Signature(pub [u8; 64]);
 
-    pub fn to_event_key(event_id: EventId) -> Vec<u8> {
-        let key = event_id as u128;
-        key.to_be_bytes().to_vec()
-    }
-
-    pub fn to_event_id(key: &[u8]) -> Result<EventId, String> {
-        let key = key.try_into().map_err(|_| "invalid event id".to_string())?;
-        let key = u128::from_be_bytes(key);
-        if key <= MAX_EVENT_KEY {
-            Ok(key as EventId)
-        } else {
-            Err("invalid event id".to_string())
-        }
+impl std::fmt::Display for Signature {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        hex::encode(&self.encode()).fmt(f)
     }
 }
 
 pub mod args {
     use super::*;
+    use ed25519_dalek::{Signature as Ed25519Signature, Verifier, VerifyingKey};
     use parity_scale_codec::{Decode, Encode};
     use serde::{Deserialize, Serialize};
+
+    #[derive(Debug, Clone, Decode, Encode)]
+    pub struct Args<T> {
+        pub signature: Signature,
+        pub signer: Pubkey,
+        pub nonce: u64,
+        pub payload: T,
+    }
+
+    pub trait Verifiable<T: Encode> {
+        fn ensure_signed(&self) -> Result<(), String>;
+
+        fn prehash(&self) -> [u8; 32];
+    }
+
+    impl<T: Encode> Verifiable<T> for Args<T> {
+        fn ensure_signed(&self) -> Result<(), String> {
+            // let prehash = self.prehash();
+            // let pubkey = VerifyingKey::from_bytes(&self.signer.0).map_err(|_| "invalid pubkey")?;
+            // let signature = Ed25519Signature::from_bytes(&self.signature.0);
+            // pubkey
+            //     .verify(&prehash, &signature)
+            //     .map_err(|_| "invalid signature")?;
+            Ok(())
+        }
+
+        fn prehash(&self) -> [u8; 32] {
+            let mut hasher = Sha256::new();
+            hasher.update(self.nonce.encode().as_slice());
+            hasher.update(self.payload.encode().as_slice());
+            hasher.finalize().into()
+        }
+    }
 
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
     pub struct CreateCommunityArg {
@@ -196,5 +247,10 @@ pub mod args {
         pub image: Option<String>,
         pub mention: Vec<AccountId>,
         pub reply_to: Option<ContentId>,
+    }
+
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
+    pub struct SetAliasArg {
+        pub alias: String,
     }
 }

@@ -2,6 +2,7 @@ use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
 use jsonrpsee::{core::client::ClientT, rpc_params};
 use parity_scale_codec::{Decode, Encode};
 use vemodel::*;
+use vrs_core_sdk::AccountId;
 
 pub async fn get_community<T: ClientT>(
     client: &T,

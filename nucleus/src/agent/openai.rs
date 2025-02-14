@@ -4,7 +4,7 @@ use vemodel::Thread;
 use vrs_core_sdk::http::{self, HttpMethod, HttpRequest, HttpResponse, RequestHead};
 use vrs_core_sdk::CallResult;
 
-pub(crate) fn create_assistant(name: &str, prompt: String, key: String) -> Result<u64, String> {
+pub(crate) fn create_assistant(name: &str, prompt: &str, key: String) -> Result<u64, String> {
     let mut headers = BTreeMap::new();
     headers.insert("Content-Type".to_string(), "application/json".to_string());
     headers.insert("OpenAI-Beta".to_string(), "assistants=v2".to_string());
@@ -94,21 +94,7 @@ pub(crate) fn retrieve_run(key: String, session_id: &str, invoke_id: &str) -> Re
     Ok(response)
 }
 
-// TODO
-pub(crate) fn resolve_run_id_and_status(
-    response: CallResult<HttpResponse>,
-) -> Result<(String, super::InvocationStatus), String> {
-    let run: RunObject = super::parse_response(response)?;
-    let status = match run.status.as_str() {
-        "queued" | "in_progress" => super::InvocationStatus::Running,
-        "completed" => super::InvocationStatus::Completed,
-        "requires_action" => super::InvocationStatus::WaitingFunctionCall,
-        _ => super::InvocationStatus::Failed,
-    };
-    Ok((run.id, status))
-}
-
-pub(crate) fn list_messages(key: String, session_id: &str) -> Result<u64, String> {
+pub(crate) fn list_messages(key: String, session_id: &str, invoke_id: &str) -> Result<u64, String> {
     let mut headers = BTreeMap::new();
     headers.insert("Content-Type".to_string(), "application/json".to_string());
     headers.insert("OpenAI-Beta".to_string(), "assistants=v2".to_string());
@@ -116,7 +102,10 @@ pub(crate) fn list_messages(key: String, session_id: &str) -> Result<u64, String
     let response = http::request(HttpRequest {
         head: RequestHead {
             method: HttpMethod::Get,
-            uri: format!("https://api.openai.com/v1/threads/{}/messages", session_id),
+            uri: format!(
+                "https://api.openai.com/v1/threads/{}/messages?run_id={}",
+                session_id, invoke_id
+            ),
             headers,
         },
         body: vec![],

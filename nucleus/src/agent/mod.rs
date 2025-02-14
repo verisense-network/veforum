@@ -6,21 +6,17 @@ use vrs_core_sdk::{
     callback, codec::*, error::RuntimeError, http::*, set_timer, storage, timer, CallResult,
 };
 
-const HTTP_MASK: u128 = 0x0000000f_00000000_00000000_00000000;
-const KEY_STORE: u128 = 0x00000010_00000000_00000000_00000000;
-const AGENT_ID: u128 = 0x00000011_00000000_00000000_00000000;
-
 pub const OPENAI: [u8; 4] = *b"opai";
-pub const DEEPSEEK: [u8; 4] = *b"dpsk";
+// pub const DEEPSEEK: [u8; 4] = *b"dpsk";
 
 pub(crate) fn set_llm_key(vendor: [u8; 4], key: String) -> Result<(), String> {
-    let ty = (u32::from_be_bytes(vendor) as u128) << 64 | KEY_STORE;
-    storage::put(&ty.to_be_bytes(), key.into_bytes()).map_err(|e| e.to_string())
+    let ty = crate::trie::llm_key(vendor);
+    storage::put(&ty, key.into_bytes()).map_err(|e| e.to_string())
 }
 
 pub(crate) fn get_llm_key(vendor: [u8; 4]) -> Result<String, String> {
-    let ty = (u32::from_be_bytes(vendor) as u128) << 64 | KEY_STORE;
-    storage::get(&ty.to_be_bytes())
+    let ty = crate::trie::llm_key(vendor);
+    storage::get(&ty)
         .map_err(|e| e.to_string())?
         .map(|b| String::from_utf8(b))
         .transpose()
@@ -29,8 +25,8 @@ pub(crate) fn get_llm_key(vendor: [u8; 4]) -> Result<String, String> {
 }
 
 pub(crate) fn get_agent_id(community_id: CommunityId) -> Result<String, String> {
-    let assistant_key = AGENT_ID | (community_id as u128);
-    storage::get(assistant_key.to_be_bytes())
+    let assistant_key = crate::trie::agent_key(community_id);
+    storage::get(&assistant_key)
         .map_err(|e| e.to_string())?
         .map(|b| String::from_utf8(b))
         .transpose()
@@ -39,12 +35,8 @@ pub(crate) fn get_agent_id(community_id: CommunityId) -> Result<String, String> 
 }
 
 pub(crate) fn set_agent_id(community_id: CommunityId, assistant_id: String) -> Result<(), String> {
-    let assistant_key = AGENT_ID | (community_id as u128);
-    storage::put(assistant_key.to_be_bytes(), assistant_id.into_bytes()).map_err(|e| e.to_string())
-}
-
-fn http_trace_key(id: u64) -> [u8; 16] {
-    (HTTP_MASK | id as u128).to_be_bytes()
+    let assistant_key = crate::trie::agent_key(community_id);
+    storage::put(assistant_key, assistant_id.into_bytes()).map_err(|e| e.to_string())
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
@@ -66,7 +58,7 @@ pub enum InvocationStatus {
 
 #[callback]
 pub fn on_response(id: u64, response: CallResult<HttpResponse>) {
-    let key = http_trace_key(id);
+    let key = crate::trie::http_trace_key(id);
     match storage::get(&key) {
         Ok(Some(v)) => {
             if let Ok(call_type) = HttpCallType::decode(&mut &v[..]) {
@@ -81,7 +73,7 @@ pub fn on_response(id: u64, response: CallResult<HttpResponse>) {
 }
 
 fn trace(id: u64, call_type: HttpCallType) -> Result<(), RuntimeError> {
-    let key = http_trace_key(id);
+    let key = crate::trie::http_trace_key(id);
     storage::put(&key, &call_type.encode())
 }
 
@@ -115,7 +107,7 @@ fn untrace(
             };
             match status {
                 InvocationStatus::Running => {
-                    set_timer!(
+                    let _ = set_timer!(
                         std::time::Duration::from_secs(5),
                         check_invocation_status,
                         content_id,
@@ -127,7 +119,7 @@ fn untrace(
                     // TODO submit function call
                 }
                 InvocationStatus::Completed => {
-                    pull_messages(content_id, run.thread_id.clone())?;
+                    pull_messages(content_id, &run.thread_id, &run.id)?;
                 }
                 InvocationStatus::Failed => {
                     vrs_core_sdk::eprintln!("{:?}", serde_json::to_string(&run))
@@ -137,18 +129,39 @@ fn untrace(
         HttpCallType::PullingMessage(content_id) => {
             // TODO
             let messages = openai::resolve_messages(response)?;
-            vrs_core_sdk::println!("{:?}", serde_json::to_string(&messages));
-            let id = crate::allocate_comment_id(content_id)?;
-            let key = trie::to_content_key(id);
-            // let comment = Comment {
-            //     id: hex::encode(id.encode()),
-            //     content,
-            //     image: None,
-            //     author,
-            //     mention: vec![],
-            //     reply_to: None,
-            //     created_time: timer::now() as i64,
-            // };
+            let reply = messages
+                .data
+                .into_iter()
+                .find(|m| m.role == openai::MessageRole::assistant);
+            if let Some(reply) = reply {
+                let content = reply
+                    .content
+                    .into_iter()
+                    .filter(|c| c.content_type == "text")
+                    .map(|c| c.text.value)
+                    .collect::<Vec<String>>()
+                    .join("\n");
+                let id = crate::allocate_comment_id(content_id)?;
+                let community_id = (id >> 64) as CommunityId;
+                let community_key = crate::trie::to_community_key(community_id);
+                let community: Community =
+                    crate::find(&community_key)?.ok_or("Community not found".to_string())?;
+                let agent_account = community.agent_account();
+                let key = crate::trie::to_content_key(id);
+                let reply_to =
+                    crate::trie::is_comment(content_id).then(|| hex::encode(content_id.encode()));
+                let comment = Comment {
+                    id: hex::encode(id.encode()),
+                    content,
+                    image: None,
+                    author: agent_account,
+                    mention: vec![],
+                    reply_to,
+                    created_time: timer::now() as i64,
+                };
+                storage::put(&key, comment.encode()).map_err(|e| e.to_string())?;
+                crate::save_event(Event::CommentPosted(id))?;
+            }
         }
     }
     Ok(())
@@ -165,7 +178,7 @@ pub(crate) fn check_invocation_status(
     trace(id, HttpCallType::CheckInvocationStatus(content_id)).map_err(|e| e.to_string())
 }
 
-pub(crate) fn init_agent(community: &str, prompt: String) -> Result<(), String> {
+pub(crate) fn init_agent(community: &str, prompt: &str) -> Result<(), String> {
     let community_id = crate::name_to_community_id(community).expect("caller check;");
     let key = get_llm_key(OPENAI)?;
     let id = openai::create_assistant(community, prompt, key)?;
@@ -180,8 +193,12 @@ pub(crate) fn create_session_and_run(thread: &Thread) -> Result<(), String> {
     trace(id, HttpCallType::InvokingLLM(thread.id())).map_err(|e| e.to_string())
 }
 
-pub(crate) fn pull_messages(content_id: ContentId, session_id: String) -> Result<(), String> {
+pub(crate) fn pull_messages(
+    content_id: ContentId,
+    session_id: &str,
+    invoke_id: &str,
+) -> Result<(), String> {
     let key = get_llm_key(OPENAI)?;
-    let id = openai::list_messages(key, &session_id)?;
+    let id = openai::list_messages(key, session_id, invoke_id)?;
     trace(id, HttpCallType::PullingMessage(content_id)).map_err(|e| e.to_string())
 }

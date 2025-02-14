@@ -4,12 +4,13 @@ use meilisearch_sdk::client::Client;
 use parity_scale_codec::Decode;
 use rocksdb::DB;
 use vemodel::*;
+use vrs_core_sdk::NucleusId;
 
 pub async fn index_event(
     origin: &HttpClient,
     db: &DB,
     indexer: &Client,
-    nucleus_id: &AccountId,
+    nucleus_id: &NucleusId,
     id: EventId,
     event: Event,
 ) -> anyhow::Result<()> {
@@ -36,17 +37,17 @@ pub async fn index_event(
                 let mut comments = vec![];
                 let mut threads = vec![];
                 for (id, content) in contents.iter() {
-                    if id & 0xffffffff == 0 {
-                        let thread = Thread::decode(&mut &content[..])
-                            .map_err(|_| anyhow::anyhow!("decode thread failed"))?;
-                        if !storage::exists(&db, id.to_be_bytes()) {
-                            threads.push(thread);
-                        }
-                    } else {
+                    if vemodel::is_comment(*id) {
                         let comment = Comment::decode(&mut &content[..])
                             .map_err(|_| anyhow::anyhow!("decode comment failed"))?;
                         if !storage::exists(&db, id.to_be_bytes()) {
                             comments.push(comment);
+                        }
+                    } else {
+                        let thread = Thread::decode(&mut &content[..])
+                            .map_err(|_| anyhow::anyhow!("decode thread failed"))?;
+                        if !storage::exists(&db, id.to_be_bytes()) {
+                            threads.push(thread);
                         }
                     }
                 }

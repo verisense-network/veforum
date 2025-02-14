@@ -1,6 +1,7 @@
+use crate::trie;
 use parity_scale_codec::{Decode, Encode};
-use vemodel::{args::*, trie, *};
-use vrs_core_sdk::{get, post, storage, timer, AccountId};
+use vemodel::{args::*, *};
+use vrs_core_sdk::{get, post, storage, timer};
 
 // TODO authorization
 #[post]
@@ -9,11 +10,15 @@ pub fn set_llm_key(key: String) -> Result<(), String> {
 }
 
 #[post]
-pub fn create_community(
-    creator: AccountId,
-    arg: CreateCommunityArg,
-) -> Result<CommunityId, String> {
-    let id = crate::name_to_community_id(&arg.name)
+pub fn create_community(args: Args<CreateCommunityArg>) -> Result<CommunityId, String> {
+    args.ensure_signed()?;
+    let Args {
+        signature: _signature,
+        signer,
+        nonce: _nonce,
+        payload,
+    } = args;
+    let id = crate::name_to_community_id(&payload.name)
         .ok_or("Community name should only contains `a-zA-Z0-9_-` with length <= 24".to_string())?;
     let key = trie::to_community_key(id);
     let community = crate::find::<Community>(&key)?;
@@ -27,25 +32,28 @@ pub fn create_community(
         slug,
         description,
         prompt,
-    } = arg;
+    } = payload;
     let community = Community {
         name: name.clone(),
         slug,
-        creator,
+        creator: signer,
         description,
-        ed25519_pubkey: [0u8; 32],
+        prompt: prompt.clone(),
+        // TODO await tss key generate
+        agent_pubkey: AccountId([0u8; 32]),
         // TODO: WaitingTx
         status: CommunityStatus::Active,
         created_time: timer::now() as i64,
     };
     storage::put(&key, community.encode()).map_err(|e| e.to_string())?;
     crate::save_event(Event::CommunityCreated(id))?;
-    crate::agent::init_agent(&name, prompt)?;
+    // TODO move to activate_community
+    crate::agent::init_agent(&name, &prompt)?;
     Ok(id)
 }
 
 #[post]
-pub fn activate_community(community: String, tx: [u8; 32]) -> Result<(), String> {
+pub fn activate_community(community: String, _tx: [u8; 32]) -> Result<(), String> {
     let community_id = crate::name_to_community_id(&community).ok_or("Invalid name".to_string())?;
     let key = trie::to_community_key(community_id);
     let mut community = crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
@@ -57,14 +65,21 @@ pub fn activate_community(community: String, tx: [u8; 32]) -> Result<(), String>
 }
 
 #[post]
-pub fn post_thread(author: AccountId, arg: PostThreadArg) -> Result<ContentId, String> {
+pub fn post_thread(args: Args<PostThreadArg>) -> Result<ContentId, String> {
+    args.ensure_signed()?;
+    let Args {
+        signature: _signature,
+        signer,
+        nonce: _nonce,
+        payload,
+    } = args;
     let PostThreadArg {
         community,
         title,
         content,
         image,
         mention,
-    } = arg;
+    } = payload;
     let community_id =
         crate::name_to_community_id(&community).ok_or("Invalid community name".to_string())?;
     let key = trie::to_community_key(community_id);
@@ -79,7 +94,7 @@ pub fn post_thread(author: AccountId, arg: PostThreadArg) -> Result<ContentId, S
         title,
         content,
         image,
-        author,
+        author: signer,
         mention,
         created_time: timer::now() as i64,
     };
@@ -90,14 +105,21 @@ pub fn post_thread(author: AccountId, arg: PostThreadArg) -> Result<ContentId, S
 }
 
 #[post]
-pub fn post_comment(author: AccountId, arg: PostCommentArg) -> Result<ContentId, String> {
+pub fn post_comment(args: Args<PostCommentArg>) -> Result<ContentId, String> {
+    args.ensure_signed()?;
+    let Args {
+        signature: _signature,
+        signer,
+        nonce: _nonce,
+        payload,
+    } = args;
     let PostCommentArg {
         thread,
         content,
         image,
         mention,
         reply_to,
-    } = arg;
+    } = payload;
     let community_id = (thread >> 64) as u32;
     let key = trie::to_community_key(community_id);
     let community = crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
@@ -112,9 +134,11 @@ pub fn post_comment(author: AccountId, arg: PostCommentArg) -> Result<ContentId,
         id: hex::encode(id.encode()),
         content,
         image,
-        author,
+        author: signer,
         mention,
-        reply_to,
+        reply_to: reply_to
+            .filter(|c| trie::is_comment(*c) && id > *c)
+            .map(|c| hex::encode(c.encode())),
         created_time: timer::now() as i64,
     };
     storage::put(&key, comment.encode()).map_err(|e| e.to_string())?;
@@ -125,7 +149,9 @@ pub fn post_comment(author: AccountId, arg: PostCommentArg) -> Result<ContentId,
 #[get]
 pub fn get_community(id: CommunityId) -> Result<Option<Community>, String> {
     let key = trie::to_community_key(id);
-    crate::find(&key)
+    let mut community = crate::find::<Community>(&key)?;
+    community.as_mut().map(|c| c.prompt = Default::default());
+    Ok(community)
 }
 
 #[get]
@@ -173,4 +199,17 @@ pub fn get_events(id: EventId, limit: u32) -> Result<Vec<(EventId, Event)>, Stri
         }
     }
     Ok(r)
+}
+
+#[get]
+pub fn get_account_info(account_id: AccountId) -> Result<Option<Account>, String> {
+    let key = trie::to_account_key(account_id);
+    match crate::find::<AccountData>(&key)? {
+        Some(AccountData::Pubkey(data)) => Ok(Some(data)),
+        Some(AccountData::AliasOf(id)) => {
+            let key = trie::to_account_key(id);
+            crate::find::<Account>(&key)
+        }
+        None => Ok(None),
+    }
 }

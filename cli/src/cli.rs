@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use vemodel::*;
+use vrs_core_sdk::NucleusId;
 
 #[derive(Debug, Parser)]
 #[command(author = "Verisense Team <dev@verisense.network>", version)]
@@ -64,9 +65,9 @@ impl Options {
         }
     }
 
-    pub(crate) fn get_nucleus(&self) -> Result<AccountId, String> {
+    pub(crate) fn get_nucleus(&self) -> Result<NucleusId, String> {
         use std::str::FromStr;
-        let account = AccountId::from_str(&self.nucleus);
+        let account = NucleusId::from_str(&self.nucleus);
         match account {
             Ok(account) => Ok(account),
             Err(_) => Err("Invalid nucleus address".to_string()),

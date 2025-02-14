@@ -1,8 +1,9 @@
 mod agent;
 mod nucleus;
+mod trie;
 
 use sha2::{Digest, Sha256};
-use vemodel::{trie, CommunityId, ContentId, Event, EventId};
+use vemodel::{CommunityId, ContentId, Event, EventId};
 use vrs_core_sdk::{
     codec::{Decode, Encode},
     storage,

@@ -9,8 +9,12 @@ serde = { workspace = true }
 vrs-core-sdk = { workspace = true }
 sha2 = { version = "0.10", default-features = false }
 hex = "0.4"
+borsh = { version = "1.5.5", features = ["derive"] }
+bs58 = "0.5.1"
+ed25519-dalek = { version = "2.1.1", default-features = false }
 
 [features]
 std = [
-    "vrs-core-sdk/std"
+    "vrs-core-sdk/std",
+    "ed25519-dalek/std",
 ]
