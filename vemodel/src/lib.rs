@@ -37,6 +37,7 @@ pub enum CommunityStatus {
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
 pub struct Community {
+    pub id: String,
     pub name: String,
     pub slug: String,
     pub description: String,
@@ -107,19 +108,7 @@ impl Comment {
     }
 }
 
-#[derive(
-    Debug,
-    Clone,
-    Copy,
-    Eq,
-    PartialEq,
-    Decode,
-    Encode,
-    Deserialize,
-    Serialize,
-    BorshSerialize,
-    BorshDeserialize,
-)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Decode, Encode, BorshSerialize, BorshDeserialize)]
 pub struct AccountId(pub [u8; 32]);
 
 pub type Pubkey = AccountId;
@@ -143,6 +132,42 @@ impl std::str::FromStr for AccountId {
 impl std::fmt::Display for AccountId {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         bs58::encode(&self.encode()).into_string().fmt(f)
+    }
+}
+
+struct AccountIdVisitor;
+
+impl<'de> serde::de::Visitor<'de> for AccountIdVisitor {
+    type Value = Pubkey;
+
+    fn expecting(&self, formatter: &mut core::fmt::Formatter) -> std::fmt::Result {
+        write!(formatter, "bs58 account")
+    }
+
+    fn visit_str<E>(self, value: &str) -> Result<AccountId, E>
+    where
+        E: serde::de::Error,
+    {
+        <AccountId as std::str::FromStr>::from_str(value)
+            .map_err(|_| E::invalid_value(serde::de::Unexpected::Str(value), &self))
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for AccountId {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::de::Deserializer<'de>,
+    {
+        deserializer.deserialize_str(AccountIdVisitor)
+    }
+}
+
+impl serde::Serialize for AccountId {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::ser::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
     }
 }
 

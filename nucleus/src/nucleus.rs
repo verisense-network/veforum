@@ -34,6 +34,7 @@ pub fn create_community(args: Args<CreateCommunityArg>) -> Result<CommunityId, S
         prompt,
     } = payload;
     let community = Community {
+        id: hex::encode(id.encode()),
         name: name.clone(),
         slug,
         creator: signer,
