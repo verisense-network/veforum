@@ -167,7 +167,7 @@ pub async fn main() {
             let client = build_client(&cli.options.get_rpc());
             let community_id = cmd.id;
             match get_community(client, nucleus_id, community_id).await {
-                Ok(Some(community)) => println!("{:?}", community),
+                Ok(Some(community)) => println!("{}", serde_json::to_string(&community).unwrap()),
                 Ok(None) => eprintln!("Community not found"),
                 Err(e) => eprintln!("{:?}", e),
             }

@@ -24,7 +24,13 @@ pub async fn index_event(
                     .ok_or_else(|| anyhow::anyhow!("community not found"))?;
                 storage::save_community(&db, &community)?;
                 let index = indexer.index("community");
-                index.add_documents(&[community], Some("id")).await?;
+                println!(
+                    "indexing community: {}",
+                    serde_json::to_string(&community).unwrap()
+                );
+                let task = index.add_documents(&[community], Some("id")).await?;
+                let info = task.wait_for_completion(&indexer, None, None).await?;
+                println!("{:?}", info);
             }
             storage::save_event(&db, id, Event::CommunityCreated(community_id))?;
         }
