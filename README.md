@@ -5,7 +5,8 @@ A forum on Verisense and Meilisearch.
 
 1. compile & launch verisense
 
-``` 
+```
+git clone --depth 1 https://github.com/verisense-network/verisense.git && cd verisense
 cargo build --release
 target/release/verisense --alice --dev
 ```
@@ -22,20 +23,22 @@ echo -n '0xe5be9a5092b81bca64be81d212e7f2f9eba183bb7a90954f7b76361f6edb5c0a' > ~
 3. compile veforum & deploy
 
 ```
+git clone https://github.com/verisense-network/veforum.git && cd veforum
 cargo build --release --target wasm32-unknown-unknown -p aitonomy
 vrx nucleus create veforum --capacity 1 --rpc ws://localhost:9944
 vrx nucleus install --id kGk1FJCoPv4JTxez4aaWgGVaTPvsc2YPStz6ZWni4e61FVUW6 --wasm target/wasm32-unknown-unknown/release/aitonomy.wasm --rpc ws://localhost:9944
-# wait for 15 seconds
-
+# wait for about 15 seconds
 ```
 
 4. launch offchain-indexer & sync data
 
 ```
-# you may need to install meilisearch
-./meilisearch --master-key="masterkey" 
+docker-compose up --build
+```
 
-# compile surrogate to sync data from nucleus
-cargo build -p surrogate --release
-target/release/surrogate
+5. try search
+
+```
+curl -XGET 'http://localhost:80/indexes/comment/search'
+
 ```

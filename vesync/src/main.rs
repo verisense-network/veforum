@@ -4,15 +4,18 @@ mod storage;
 
 use meilisearch_sdk::client::*;
 use std::str::FromStr;
-use vemodel::*;
 use vrs_core_sdk::NucleusId;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let db = storage::open("./data")?;
-    let origin = rpc::build_client("http://localhost:9944");
-    let nucleus_id = NucleusId::from_str("kGk1FJCoPv4JTxez4aaWgGVaTPvsc2YPStz6ZWni4e61FVUW6")?;
-    let indexer = Client::new("http://localhost:7700", Some("masterkey"))?;
+    let meili_master_key = std::env::var("MEILI_MASTER_KEY").expect("MEILI_MASTER_KEY must be set");
+    let meili_addr = std::env::var("MEILI_ADDR").expect("MEILI_ADDR must be set");
+    let verisense_rpc = std::env::var("VERISENSE_RPC").expect("VERISENSE_RPC must be set");
+    let nucleus_id = std::env::var("NUCLEUS_ID").expect("NUCLEUS_ID must be set");
+    let origin = rpc::build_client(&verisense_rpc);
+    let nucleus_id = NucleusId::from_str(&nucleus_id)?;
+    let indexer = Client::new(meili_addr, Some(meili_master_key))?;
 
     loop {
         let event_id = storage::get_max_event(&db)? + 1;

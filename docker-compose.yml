@@ -1,0 +1,29 @@
+version: '3.7'
+
+services:
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./conf/nginx.conf:/tmp/nginx.conf
+      - ./conf/entrypoint.sh:/usr/local/bin/entrypoint.sh
+    env_file:
+      - .env
+    entrypoint: /usr/local/bin/entrypoint.sh
+    depends_on:
+      - meilisearch
+
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    command: ["meilisearch", "--master-key", "${MEILI_MASTER_KEY}"]
+    env_file:
+      - .env
+
+  vesync:
+    build:
+      context: ./
+    env_file:
+      - .env
+    depends_on:
+      - meilisearch

@@ -21,6 +21,7 @@ Cargo.lock
 #.idea/
 
 # Added by cargo
+.env
 
 data.ms/
 meilisearch
