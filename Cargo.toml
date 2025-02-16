@@ -2,7 +2,7 @@
 members = [
   "cli",
   "nucleus",
-  "surrogate",
+  "vesync",
   "vemodel",
 ]
 resolver = "2"

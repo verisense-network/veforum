@@ -24,13 +24,7 @@ pub async fn index_event(
                     .ok_or_else(|| anyhow::anyhow!("community not found"))?;
                 storage::save_community(&db, &community)?;
                 let index = indexer.index("community");
-                println!(
-                    "indexing community: {}",
-                    serde_json::to_string(&community).unwrap()
-                );
-                let task = index.add_documents(&[community], Some("id")).await?;
-                let info = task.wait_for_completion(&indexer, None, None).await?;
-                println!("{:?}", info);
+                index.add_documents(&[community], Some("id")).await?;
             }
             storage::save_event(&db, id, Event::CommunityCreated(community_id))?;
         }
@@ -39,7 +33,6 @@ pub async fn index_event(
                 let contents = rpc::get_contents(origin, nucleus_id, content_id)
                     .await
                     .map_err(|_| anyhow::anyhow!("fetch contents failed"))?;
-                println!("{} contents fetched", contents.len());
                 let mut comments = vec![];
                 let mut threads = vec![];
                 for (id, content) in contents.iter() {
@@ -58,12 +51,10 @@ pub async fn index_event(
                     }
                 }
                 storage::save_contents(&db, &contents)?;
-                let task = indexer
+                indexer
                     .index("thread")
                     .add_documents(&threads, Some("id"))
                     .await?;
-                let info = task.wait_for_completion(&indexer, None, None).await?;
-                println!("{:?}", info);
                 indexer
                     .index("comment")
                     .add_documents(&threads, Some("id"))
