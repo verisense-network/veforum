@@ -11,6 +11,10 @@ pub fn is_comment(content_id: ContentId) -> bool {
     content_id & 0xffffffff != 0
 }
 
+pub fn is_thread(content_id: ContentId) -> bool {
+    content_id & 0xffffffff == 0
+}
+
 #[derive(Debug, Decode, Encode, Deserialize, Serialize, Clone, Copy)]
 pub enum Event {
     #[codec(index = 0)]

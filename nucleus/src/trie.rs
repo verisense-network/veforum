@@ -18,6 +18,7 @@ pub const ACCOUNT_KEY_PREFIX: u64 = 0x00000003_00000000;
 pub const HTTP_MASK: u128 = 0x0000000f_00000000_00000000_00000000;
 pub const KEY_STORE: u64 = 0x00000010_00000000;
 pub const AGENT_ID_KEY: u64 = 0x00000011_00000000;
+pub const SESSION_ID_KEY: u128 = 0x00000012_00000000_00000000_00000000;
 
 pub fn is_comment(content_id: ContentId) -> bool {
     content_id & 0xffffffff != 0
@@ -74,6 +75,10 @@ pub fn http_trace_key(id: u64) -> [u8; 16] {
 
 pub fn agent_key(community_id: CommunityId) -> [u8; 8] {
     (AGENT_ID_KEY | (community_id as u64)).to_be_bytes()
+}
+
+pub fn session_key(content_id: ContentId) -> [u8; 16] {
+    (SESSION_ID_KEY | content_id & (u128::MAX - u32::MAX as u128)).to_be_bytes()
 }
 
 pub fn llm_key(vendor: [u8; 4]) -> [u8; 8] {

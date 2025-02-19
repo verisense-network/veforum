@@ -1,10 +1,10 @@
 use std::collections::BTreeMap;
 use serde::{Serialize, Deserialize};
-use vemodel::Thread;
+use vemodel::{Comment, Thread};
 use vrs_core_sdk::http::{self, HttpMethod, HttpRequest, HttpResponse, RequestHead};
 use vrs_core_sdk::CallResult;
 
-pub(crate) fn create_assistant(name: &str, prompt: &str, key: String) -> Result<u64, String> {
+pub(crate) fn create_assistant(key: String, name: &str, prompt: &str) -> Result<u64, String> {
     let mut headers = BTreeMap::new();
     headers.insert("Content-Type".to_string(), "application/json".to_string());
     headers.insert("OpenAI-Beta".to_string(), "assistants=v2".to_string());
@@ -13,7 +13,53 @@ pub(crate) fn create_assistant(name: &str, prompt: &str, key: String) -> Result<
         "instructions": prompt,
         "model": "gpt-4o",
         "name": name,
-        "tools": []
+        "tools": [{
+            "type": "function",
+            "function": {
+                "name": "transfer",
+                "description": "Transfer funds to another account",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "recipient": {
+                            "type": "string",
+                            "description": "The recipient account_id, e.g. HQs68wmw1FAwzaduh3hBisZ7LorYiam8zNGCWvE8YuMP"
+                        },
+                        "amount": {
+                            "type": "number",
+                            "description": "The amount(integer) to transfer"
+                        }
+                    },
+                    "required": ["recipient", "amount"],
+                    "additionalProperties": false
+                },
+                "strict": true
+            }
+        },{
+            "type": "function",
+            "function": {
+                "name": "agent_balance",
+                "description": "Check the agent account balance"
+            }
+        },{
+            "type": "function",
+            "function": {
+                "name": "balance_of",
+                "description": "Query the balance of an account",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "account_id": {
+                            "type": "string",
+                            "description": "The account_id to query, e.g. HQs68wmw1FAwzaduh3hBisZ7LorYiam8zNGCWvE8YuMP"
+                        }
+                    },
+                    "required": ["account_id"],
+                    "additionalProperties": false
+                },
+                "strict": true
+            }
+        }]
     });
     let id = http::request(HttpRequest {
         head: RequestHead {
@@ -33,8 +79,8 @@ pub(crate) fn resolve_assistant_id(response: CallResult<HttpResponse>) -> Result
 }
 
 pub(crate) fn create_thread_and_run(
-    assistant_id: &str,
     key: String,
+    assistant_id: &str,
     thread: &Thread,
 ) -> Result<u64, String> {
     let mut headers = BTreeMap::new();
@@ -74,6 +120,27 @@ pub(crate) fn create_thread_and_run(
     Ok(response)
 }
 
+pub(crate) fn create_run(key: String, assistant_id: &str, thread_id: &str) -> Result<u64, String> {
+    let mut headers = BTreeMap::new();
+    headers.insert("Content-Type".to_string(), "application/json".to_string());
+    headers.insert("OpenAI-Beta".to_string(), "assistants=v2".to_string());
+    headers.insert("Authorization".to_string(), format!("Bearer {}", key));
+    let body = serde_json::json!({
+        "assistant_id": assistant_id,
+        "additional_instructions": "this is a comment",
+    });
+    let response = http::request(HttpRequest {
+        head: RequestHead {
+            method: HttpMethod::Post,
+            uri: format!("https://api.openai.com/v1/threads/{}/runs", thread_id),
+            headers,
+        },
+        body: serde_json::to_vec(&body).expect("json;qed"),
+    })
+    .map_err(|e| e.to_string())?;
+    Ok(response)
+}
+
 pub(crate) fn retrieve_run(key: String, session_id: &str, invoke_id: &str) -> Result<u64, String> {
     let mut headers = BTreeMap::new();
     headers.insert("Content-Type".to_string(), "application/json".to_string());
@@ -89,6 +156,43 @@ pub(crate) fn retrieve_run(key: String, session_id: &str, invoke_id: &str) -> Re
             headers,
         },
         body: vec![],
+    })
+    .map_err(|e| e.to_string())?;
+    Ok(response)
+}
+
+pub(crate) fn append_message(
+    key: String,
+    session_id: &str,
+    comment: &Comment,
+) -> Result<u64, String> {
+    let mut headers = BTreeMap::new();
+    headers.insert("Content-Type".to_string(), "application/json".to_string());
+    headers.insert("OpenAI-Beta".to_string(), "assistants=v2".to_string());
+    headers.insert("Authorization".to_string(), format!("Bearer {}", key));
+    let mut body = serde_json::json!({
+        "role": "user",
+        "content": [{
+            "type": "text",
+            "text": serde_json::to_string(&comment).expect("json;qed")
+        }],
+    });
+    if let Some(ref img) = comment.image {
+        body["content"]
+            .as_array_mut()
+            .unwrap()
+            .push(serde_json::json!({
+                "type": "image_url",
+                "image_url": { "url": img },
+            }));
+    }
+    let response = http::request(HttpRequest {
+        head: RequestHead {
+            method: HttpMethod::Post,
+            uri: format!("https://api.openai.com/v1/threads/{}/messages", session_id),
+            headers,
+        },
+        body: serde_json::to_vec(&body).expect("json;qed"),
     })
     .map_err(|e| e.to_string())?;
     Ok(response)

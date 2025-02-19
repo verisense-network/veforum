@@ -131,19 +131,23 @@ pub fn post_comment(args: Args<PostCommentArg>) -> Result<ContentId, String> {
     crate::find::<Thread>(&thread_key)?.ok_or("Thread not found".to_string())?;
     let id = crate::allocate_comment_id(thread)?;
     let key = trie::to_content_key(id);
+    let reply_to = reply_to
+        .filter(|c| trie::is_comment(*c) && id > *c)
+        .map(|c| hex::encode(c.encode()));
     let comment = Comment {
         id: hex::encode(id.encode()),
         content,
         image,
         author: signer,
         mention,
-        reply_to: reply_to
-            .filter(|c| trie::is_comment(*c) && id > *c)
-            .map(|c| hex::encode(c.encode())),
+        reply_to: reply_to.clone(),
         created_time: timer::now() as i64,
     };
     storage::put(&key, comment.encode()).map_err(|e| e.to_string())?;
     crate::save_event(Event::CommentPosted(id))?;
+    if reply_to.is_some() {
+        crate::agent::append_message(&comment)?;
+    }
     Ok(id)
 }
 

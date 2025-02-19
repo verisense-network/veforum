@@ -1,4 +1,5 @@
 pub(crate) mod openai;
+pub(crate) mod tool;
 
 use serde::de::DeserializeOwned;
 use vemodel::*;
@@ -22,6 +23,21 @@ pub(crate) fn get_llm_key(vendor: [u8; 4]) -> Result<String, String> {
         .transpose()
         .map_err(|_| "Invalid LLM key".to_string())?
         .ok_or("LLM key not found".to_string())
+}
+
+pub(crate) fn save_session_id(content_id: ContentId, session_id: String) -> Result<(), String> {
+    let session_key = crate::trie::session_key(content_id);
+    storage::put(session_key, session_id.into_bytes()).map_err(|e| e.to_string())
+}
+
+pub(crate) fn get_session_id(content_id: ContentId) -> Result<String, String> {
+    let session_key = crate::trie::session_key(content_id);
+    storage::get(&session_key)
+        .map_err(|e| e.to_string())?
+        .map(|b| String::from_utf8(b))
+        .transpose()
+        .map_err(|_| "Invalid session id".to_string())?
+        .ok_or("Session id not found".to_string())
 }
 
 pub(crate) fn get_agent_id(community_id: CommunityId) -> Result<String, String> {
@@ -90,12 +106,19 @@ fn untrace(
     response: CallResult<HttpResponse>,
 ) -> Result<(), String> {
     storage::del(key).map_err(|e| e.to_string())?;
+
+    let body = serde_json::from_slice::<serde_json::Value>(&response.as_ref().unwrap().body)
+        .map_err(|e| e.to_string())?;
+    vrs_core_sdk::println!("run => {}", serde_json::to_string(&body).unwrap());
+
     match call_type {
         HttpCallType::CreatingAgent(community_id) => {
             let assistant_id = openai::resolve_assistant_id(response)?;
             set_agent_id(community_id, assistant_id)?;
         }
-        HttpCallType::AppendingMessage(_content_id) => {}
+        HttpCallType::AppendingMessage(content_id) => {
+            run(content_id)?;
+        }
         HttpCallType::InvokingLLM(content_id) | HttpCallType::CheckInvocationStatus(content_id) => {
             // TODO define the invocation object to replace the openai::RunObject
             let run = parse_response::<openai::RunObject>(response)?;
@@ -105,6 +128,9 @@ fn untrace(
                 "requires_action" => InvocationStatus::WaitingFunctionCall,
                 _ => InvocationStatus::Failed,
             };
+            if vemodel::is_thread(content_id) {
+                save_session_id(content_id, run.thread_id.clone())?;
+            }
             match status {
                 InvocationStatus::Running => {
                     let _ = set_timer!(
@@ -116,6 +142,7 @@ fn untrace(
                     );
                 }
                 InvocationStatus::WaitingFunctionCall => {
+                    vrs_core_sdk::println!("{}", serde_json::to_string(&run).unwrap());
                     // TODO submit function call
                 }
                 InvocationStatus::Completed => {
@@ -127,7 +154,7 @@ fn untrace(
             }
         }
         HttpCallType::PullingMessage(content_id) => {
-            // TODO
+            // TODO define the message object to replace the openai::MessageObject
             let messages = openai::resolve_messages(response)?;
             let reply = messages
                 .data
@@ -181,7 +208,7 @@ pub(crate) fn check_invocation_status(
 pub(crate) fn init_agent(community: &str, prompt: &str) -> Result<(), String> {
     let community_id = crate::name_to_community_id(community).expect("caller check;");
     let key = get_llm_key(OPENAI)?;
-    let id = openai::create_assistant(community, prompt, key)?;
+    let id = openai::create_assistant(key, community, prompt)?;
     trace(id, HttpCallType::CreatingAgent(community_id)).map_err(|e| e.to_string())
 }
 
@@ -189,10 +216,27 @@ pub(crate) fn create_session_and_run(thread: &Thread) -> Result<(), String> {
     let community_id = thread.community_id();
     let assistant_id = get_agent_id(community_id)?;
     let key = get_llm_key(OPENAI)?;
-    let id = openai::create_thread_and_run(&assistant_id, key, thread)?;
+    let id = openai::create_thread_and_run(key, &assistant_id, thread)?;
     trace(id, HttpCallType::InvokingLLM(thread.id())).map_err(|e| e.to_string())
 }
 
+pub(crate) fn run(content_id: ContentId) -> Result<(), String> {
+    let comment = crate::find::<Comment>(&crate::trie::to_content_key(content_id))?
+        .ok_or("Comment not found".to_string())?;
+    let community_id = comment.community_id();
+    let assistant_id = get_agent_id(community_id)?;
+    let key = get_llm_key(OPENAI)?;
+    let session_id = get_session_id(content_id)?;
+    let id = openai::create_run(key, &assistant_id, &session_id)?;
+    trace(id, HttpCallType::InvokingLLM(content_id)).map_err(|e| e.to_string())
+}
+
+pub(crate) fn append_message(comment: &Comment) -> Result<(), String> {
+    let session_id = get_session_id(comment.id())?;
+    let key = get_llm_key(OPENAI)?;
+    let id = openai::append_message(key, &session_id, comment)?;
+    trace(id, HttpCallType::AppendingMessage(comment.id())).map_err(|e| e.to_string())
+}
 pub(crate) fn pull_messages(
     content_id: ContentId,
     session_id: &str,

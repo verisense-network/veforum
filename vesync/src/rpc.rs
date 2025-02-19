@@ -27,7 +27,7 @@ pub async fn get_contents<T: ClientT>(
     let params = rpc_params![
         nucleus_id.to_string(),
         "get_raw_contents",
-        hex::encode((content_id, 100u32).encode())
+        hex::encode((content_id, 1000u32).encode())
     ];
     let hex_str: String = client.request("nucleus_get", params).await?;
     let hex = hex::decode(&hex_str)?;
@@ -57,7 +57,7 @@ pub async fn get_events<T: ClientT>(
     let params = rpc_params![
         nucleus_id.to_string(),
         "get_events",
-        hex::encode((event_id, 100u32).encode())
+        hex::encode((event_id, 1000u32).encode())
     ];
     let hex_str: String = client.request("nucleus_get", params).await?;
     let hex = hex::decode(&hex_str)?;

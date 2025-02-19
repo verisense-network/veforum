@@ -58,9 +58,6 @@ pub(crate) fn allocate_thread_id(community_id: CommunityId) -> Result<ContentId,
 }
 
 pub(crate) fn allocate_comment_id(thread_id: ContentId) -> Result<ContentId, String> {
-    (thread_id & 0xffffffff == 0)
-        .then(|| ())
-        .ok_or("Invalid thread id".to_string())?;
     let start_key = trie::MIN_CONTENT_KEY | thread_id;
     let end_key = start_key | u32::MAX as u128;
     let r = storage::search(&end_key.to_be_bytes()[..], storage::Direction::Reverse)
@@ -71,6 +68,6 @@ pub(crate) fn allocate_comment_id(thread_id: ContentId) -> Result<ContentId, Str
         .unwrap_or(thread_id);
     (r & 0xffffffff < 0xffffffff)
         .then(|| ())
-        .ok_or("We don't expect more than 4b threads in a community :)")?;
+        .ok_or("We don't expect more than 4b comments in a thread :)")?;
     Ok(r + 1)
 }
