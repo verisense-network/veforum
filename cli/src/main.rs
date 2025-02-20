@@ -19,6 +19,18 @@ pub async fn set_openai_key<T: ClientT>(
     Result::<(), String>::decode(&mut &hex[..])?.map_err(|e| e.into())
 }
 
+pub async fn get_balances<T: ClientT>(
+    client: T,
+    nucleus_id: NucleusId,
+    account_id: AccountId,
+) -> Result<Vec<(Community, u64)>, Box<dyn std::error::Error>> {
+    let payload = hex::encode((account_id, None::<CommunityId>, 100u32).encode());
+    let params = rpc_params![nucleus_id.to_string(), "get_balances", payload];
+    let hex_str: String = client.request("nucleus_get", params).await?;
+    let hex = hex::decode(&hex_str)?;
+    Result::<Vec<(Community, u64)>, String>::decode(&mut &hex[..])?.map_err(|e| e.into())
+}
+
 pub async fn create_community<T: ClientT>(
     client: T,
     nucleus_id: NucleusId,
@@ -191,6 +203,17 @@ pub async fn main() {
             let client = build_client(&cli.options.get_rpc());
             match set_openai_key(client, nucleus_id, cmd.key).await {
                 Ok(_) => println!("Key set"),
+                Err(e) => eprintln!("{:?}", e),
+            }
+        }
+        SubCmd::GetBalances(cmd) => {
+            let client = build_client(&cli.options.get_rpc());
+            match get_balances(client, nucleus_id, cmd.account).await {
+                Ok(balances) => {
+                    for (community, balance) in balances {
+                        println!("{}: {}", community.name, balance);
+                    }
+                }
                 Err(e) => eprintln!("{:?}", e),
             }
         }

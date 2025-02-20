@@ -1,5 +1,6 @@
 pub(crate) mod openai;
-pub(crate) mod tool;
+
+use std::str::FromStr;
 
 use serde::de::DeserializeOwned;
 use vemodel::*;
@@ -62,6 +63,7 @@ pub enum HttpCallType {
     InvokingLLM(ContentId),
     CheckInvocationStatus(ContentId),
     PullingMessage(ContentId),
+    SubmittingToolCall(ContentId),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -106,11 +108,6 @@ fn untrace(
     response: CallResult<HttpResponse>,
 ) -> Result<(), String> {
     storage::del(key).map_err(|e| e.to_string())?;
-
-    let body = serde_json::from_slice::<serde_json::Value>(&response.as_ref().unwrap().body)
-        .map_err(|e| e.to_string())?;
-    vrs_core_sdk::println!("run => {}", serde_json::to_string(&body).unwrap());
-
     match call_type {
         HttpCallType::CreatingAgent(community_id) => {
             let assistant_id = openai::resolve_assistant_id(response)?;
@@ -119,7 +116,9 @@ fn untrace(
         HttpCallType::AppendingMessage(content_id) => {
             run(content_id)?;
         }
-        HttpCallType::InvokingLLM(content_id) | HttpCallType::CheckInvocationStatus(content_id) => {
+        HttpCallType::InvokingLLM(content_id)
+        | HttpCallType::CheckInvocationStatus(content_id)
+        | HttpCallType::SubmittingToolCall(content_id) => {
             // TODO define the invocation object to replace the openai::RunObject
             let run = parse_response::<openai::RunObject>(response)?;
             let status = match run.status.as_str() {
@@ -142,8 +141,31 @@ fn untrace(
                     );
                 }
                 InvocationStatus::WaitingFunctionCall => {
-                    vrs_core_sdk::println!("{}", serde_json::to_string(&run).unwrap());
-                    // TODO submit function call
+                    if let Some(actions) = run.required_action {
+                        let community_id = vemodel::get_belongs_to(content_id);
+                        let community_key = crate::trie::to_community_key(community_id);
+                        let community = crate::find::<Community>(&community_key)?
+                            .ok_or("Community not found".to_string())?;
+                        let call_result = actions
+                            .submit_tool_outputs
+                            .tool_calls
+                            .into_iter()
+                            .map(|call| {
+                                (
+                                    call.id.clone(),
+                                    match call_tool(
+                                        &community,
+                                        &call.function.name,
+                                        &call.function.arguments,
+                                    ) {
+                                        Ok(result) => result,
+                                        Err(e) => e,
+                                    },
+                                )
+                            })
+                            .collect::<Vec<(String, String)>>();
+                        submit_tool_call(content_id, &run.thread_id, &run.id, call_result)?;
+                    }
                 }
                 InvocationStatus::Completed => {
                     pull_messages(content_id, &run.thread_id, &run.id)?;
@@ -237,6 +259,7 @@ pub(crate) fn append_message(comment: &Comment) -> Result<(), String> {
     let id = openai::append_message(key, &session_id, comment)?;
     trace(id, HttpCallType::AppendingMessage(comment.id())).map_err(|e| e.to_string())
 }
+
 pub(crate) fn pull_messages(
     content_id: ContentId,
     session_id: &str,
@@ -245,4 +268,37 @@ pub(crate) fn pull_messages(
     let key = get_llm_key(OPENAI)?;
     let id = openai::list_messages(key, session_id, invoke_id)?;
     trace(id, HttpCallType::PullingMessage(content_id)).map_err(|e| e.to_string())
+}
+
+pub(crate) fn submit_tool_call(
+    content_id: ContentId,
+    session_id: &str,
+    invoke_id: &str,
+    call_result: Vec<(String, String)>,
+) -> Result<(), String> {
+    let key = get_llm_key(OPENAI)?;
+    let id = openai::submit_tool_outputs(key, session_id, invoke_id, call_result)?;
+    trace(id, HttpCallType::SubmittingToolCall(content_id)).map_err(|e| e.to_string())
+}
+
+pub(crate) fn call_tool(on: &Community, func: &str, params: &str) -> Result<String, String> {
+    let json: serde_json::Value =
+        serde_json::from_str(params).map_err(|_| "Invalid parameters".to_string())?;
+    match func {
+        "agent_balance" => crate::balance_of(on.id(), on.agent_account()).map(|v| v.to_string()),
+        "transfer" => {
+            let recipient = json["recipient"].as_str().ok_or("Invalid recipient")?;
+            let recipient =
+                AccountId::from_str(recipient).map_err(|_| "Invalid param: recipient")?;
+            let amount = json["amount"].as_u64().ok_or("Invalid amount")?;
+            crate::transfer(on.id(), on.agent_account(), recipient, amount)
+                .map(|_| "Ok".to_string())
+        }
+        "balance_of" => {
+            let account = json["account"].as_str().ok_or("Invalid account")?;
+            let account = AccountId::from_str(account).map_err(|_| "Invalid param: account")?;
+            crate::balance_of(on.id(), account).map(|v| v.to_string())
+        }
+        _ => Err("Invalid tool".to_string()),
+    }
 }

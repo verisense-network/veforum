@@ -84,6 +84,7 @@ pub enum SubCmd {
     GetContent(GetContentCommand),
     GetEvents(GetEventsCommand),
     SetKey(SetKeyCommand),
+    GetBalances(GetBalancesCommand),
 }
 
 #[derive(Debug, Parser)]
@@ -117,6 +118,12 @@ pub struct CommunityCommand {
     pub description: String,
     #[arg(long)]
     pub prompt: String,
+    #[arg(long)]
+    pub token_name: String,
+    #[arg(long)]
+    pub token_decimals: u8,
+    #[arg(long)]
+    pub token_total_supply: u64,
 }
 
 use flate2::write::GzEncoder;
@@ -130,7 +137,14 @@ impl Into<vemodel::args::CreateCommunityArg> for CommunityCommand {
         // let stream = encoder.finish().unwrap();
         vemodel::args::CreateCommunityArg {
             name: self.name,
+            logo: Default::default(),
             slug: self.slug,
+            token: vemodel::args::TokenMetadataArg {
+                symbol: self.token_name,
+                decimals: self.token_decimals,
+                total_issuance: self.token_total_supply,
+                image: None,
+            },
             description: self.description,
             prompt: self.prompt,
         }
@@ -192,4 +206,11 @@ impl Into<vemodel::args::PostCommentArg> for CommentCommand {
 pub struct SetKeyCommand {
     #[arg(long)]
     pub key: String,
+}
+
+#[derive(Debug, Parser)]
+#[command(about = "Get balances")]
+pub struct GetBalancesCommand {
+    #[arg(long)]
+    pub account: AccountId,
 }

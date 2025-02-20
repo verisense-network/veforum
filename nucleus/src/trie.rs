@@ -1,24 +1,22 @@
 use vemodel::*;
 
-pub const MAX_EVENT_KEY: u128 = 0xffffffff_ffffffff;
+#[allow(dead_code)]
+pub const MAX_COMMUNITY_ID: u32 = 0xffffffff;
 pub const MAX_EVENT_ID: u64 = 0xffffffff_ffffffff;
+pub const MAX_CONTENT_ID: u128 = 0x00000000_ffffffff_ffffffff_ffffffff;
 
+pub const MAX_EVENT_KEY: u128 = 0x00000000_00000000_ffffffff_ffffffff;
 pub const MIN_COMMUNITIE_KEY: u64 = 0x00000001_00000000;
 #[allow(dead_code)]
 pub const MAX_COMMUNITY_KEY: u64 = 0x00000001_ffffffff;
-#[allow(dead_code)]
-pub const MAX_COMMUNITY_ID: u32 = 0xffffffff;
-
 pub const MIN_CONTENT_KEY: u128 = 0x00000002_00000000_00000000_00000000;
 pub const MAX_CONTENT_KEY: u128 = 0x00000002_ffffffff_ffffffff_ffffffff;
-pub const MAX_CONTENT_ID: u128 = 0x00000000_ffffffff_ffffffff_ffffffff;
-
 pub const ACCOUNT_KEY_PREFIX: u64 = 0x00000003_00000000;
-
 pub const HTTP_MASK: u128 = 0x0000000f_00000000_00000000_00000000;
 pub const KEY_STORE: u64 = 0x00000010_00000000;
 pub const AGENT_ID_KEY: u64 = 0x00000011_00000000;
 pub const SESSION_ID_KEY: u128 = 0x00000012_00000000_00000000_00000000;
+pub const BALANCE_KEY_PREFIX: u32 = 0x00000013;
 
 pub fn is_comment(content_id: ContentId) -> bool {
     content_id & 0xffffffff != 0
@@ -87,4 +85,13 @@ pub fn llm_key(vendor: [u8; 4]) -> [u8; 8] {
 
 pub fn to_account_key(account_id: AccountId) -> Vec<u8> {
     [&ACCOUNT_KEY_PREFIX.to_be_bytes()[..], &account_id.0[..]].concat()
+}
+
+pub fn to_balance_key(community_id: CommunityId, account_id: AccountId) -> Vec<u8> {
+    [
+        &BALANCE_KEY_PREFIX.to_be_bytes()[..],
+        &account_id.0[..],
+        &community_id.to_be_bytes()[..],
+    ]
+    .concat()
 }

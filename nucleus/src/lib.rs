@@ -3,13 +3,11 @@ mod nucleus;
 mod trie;
 
 use sha2::{Digest, Sha256};
-use vemodel::{CommunityId, ContentId, Event, EventId};
+use vemodel::{AccountId, CommunityId, ContentId, Event, EventId};
 use vrs_core_sdk::{
     codec::{Decode, Encode},
     storage,
 };
-
-const COMMUNITY_REGEX: &'static str = r"^[a-zA-Z0-9_-]{3,24}$";
 
 pub(crate) fn find<T: Decode>(key: &[u8]) -> Result<Option<T>, String> {
     let r = storage::get(key).map_err(|e| e.to_string())?;
@@ -19,13 +17,10 @@ pub(crate) fn find<T: Decode>(key: &[u8]) -> Result<Option<T>, String> {
 }
 
 pub(crate) fn name_to_community_id(name: &str) -> Option<CommunityId> {
-    let re = regex::Regex::new(COMMUNITY_REGEX).unwrap();
-    re.captures(name).and_then(|_| {
-        let mut hasher = Sha256::new();
-        hasher.update(name.as_bytes());
-        let v = hasher.finalize();
-        Some(CommunityId::from_be_bytes(v[..4].try_into().unwrap()))
-    })
+    let mut hasher = Sha256::new();
+    hasher.update(name.as_bytes());
+    let v = hasher.finalize();
+    Some(CommunityId::from_be_bytes(v[..4].try_into().unwrap()))
 }
 
 pub(crate) fn save_event(event: Event) -> Result<(), String> {
@@ -70,4 +65,39 @@ pub(crate) fn allocate_comment_id(thread_id: ContentId) -> Result<ContentId, Str
         .then(|| ())
         .ok_or("We don't expect more than 4b comments in a thread :)")?;
     Ok(r + 1)
+}
+
+pub(crate) fn transfer(
+    community_id: CommunityId,
+    from: AccountId,
+    to: AccountId,
+    amount: u64,
+) -> Result<(), String> {
+    let from_key = trie::to_balance_key(community_id, from);
+    let from_balance = storage::get(&from_key)
+        .map_err(|e| e.to_string())?
+        .map(|d| u64::decode(&mut &d[..]).map_err(|e| e.to_string()))
+        .transpose()?
+        .unwrap_or(0);
+    let to_key = trie::to_balance_key(community_id, to);
+    let to_balance = storage::get(&to_key)
+        .map_err(|e| e.to_string())?
+        .map(|d| u64::decode(&mut &d[..]).map_err(|e| e.to_string()))
+        .transpose()?
+        .unwrap_or(0);
+    if from_balance < amount {
+        return Err("insufficient balance".to_string());
+    }
+    storage::put(&from_key, (from_balance - amount).encode()).map_err(|e| e.to_string())?;
+    storage::put(&to_key, (to_balance + amount).encode()).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+pub(crate) fn balance_of(community_id: CommunityId, account_id: AccountId) -> Result<u64, String> {
+    let key = trie::to_balance_key(community_id, account_id);
+    storage::get(&key)
+        .map_err(|e| e.to_string())?
+        .map(|d| u64::decode(&mut &d[..]).map_err(|e| e.to_string()))
+        .transpose()
+        .map(|v| v.unwrap_or(0))
 }

@@ -15,6 +15,10 @@ pub fn is_thread(content_id: ContentId) -> bool {
     content_id & 0xffffffff == 0
 }
 
+pub fn get_belongs_to(content_id: ContentId) -> CommunityId {
+    (content_id >> 64) as CommunityId
+}
+
 #[derive(Debug, Decode, Encode, Deserialize, Serialize, Clone, Copy)]
 pub enum Event {
     #[codec(index = 0)]
@@ -42,9 +46,11 @@ pub enum CommunityStatus {
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
 pub struct Community {
     pub id: String,
+    pub logo: String,
     pub name: String,
     pub slug: String,
     pub description: String,
+    pub token_info: TokenMetadata,
     pub prompt: String,
     pub creator: AccountId,
     pub agent_pubkey: AccountId,
@@ -71,6 +77,7 @@ impl Community {
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
 pub struct Thread {
     pub id: String,
+    pub community_name: String,
     pub title: String,
     pub content: String,
     pub image: Option<String>,
@@ -202,6 +209,7 @@ pub struct TokenMetadata {
     pub total_issuance: u64,
     pub decimals: u8,
     pub contract: AccountId,
+    pub image: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Decode, Encode)]
@@ -255,9 +263,50 @@ pub mod args {
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
     pub struct CreateCommunityArg {
         pub name: String,
+        pub logo: String,
+        pub token: TokenMetadataArg,
         pub slug: String,
         pub description: String,
         pub prompt: String,
+    }
+
+    const COMMUNITY_REGEX: &'static str = r"^[a-zA-Z0-9_-]{3,24}$";
+    const TOKEN_REGEX: &'static str = r"^[a-zA-Z0-9]{3,8}$";
+
+    #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
+    pub struct TokenMetadataArg {
+        pub symbol: String,
+        pub total_issuance: u64,
+        pub decimals: u8,
+        pub image: Option<String>,
+    }
+
+    impl TokenMetadataArg {
+        pub fn validate(&self) -> Result<(), String> {
+            let re = regex::Regex::new(TOKEN_REGEX).unwrap();
+            re.captures(&self.symbol)
+                .is_some()
+                .then(|| ())
+                .ok_or("Invalid token name".to_string())?;
+            (self.total_issuance > 0 && self.total_issuance <= (1u64 << 53))
+                .then(|| ())
+                .ok_or("total issuance should be greater than 0".to_string())?;
+            (self.decimals <= 8)
+                .then(|| ())
+                .ok_or("decimals should be less than or equal to 18".to_string())?;
+            Ok(())
+        }
+    }
+
+    impl CreateCommunityArg {
+        pub fn validate(&self) -> Result<(), String> {
+            let re = regex::Regex::new(COMMUNITY_REGEX).unwrap();
+            re.captures(&self.name)
+                .is_some()
+                .then(|| ())
+                .ok_or("Invalid community name".to_string())?;
+            self.token.validate()
+        }
     }
 
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]

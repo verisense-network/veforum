@@ -141,6 +141,43 @@ pub(crate) fn create_run(key: String, assistant_id: &str, thread_id: &str) -> Re
     Ok(response)
 }
 
+pub(crate) fn submit_tool_outputs(
+    key: String,
+    session_id: &str,
+    invoke_id: &str,
+    call_result: Vec<(String, String)>,
+) -> Result<u64, String> {
+    let mut headers = BTreeMap::new();
+    headers.insert("Content-Type".to_string(), "application/json".to_string());
+    headers.insert("OpenAI-Beta".to_string(), "assistants=v2".to_string());
+    headers.insert("Authorization".to_string(), format!("Bearer {}", key));
+    let call_result = call_result
+        .into_iter()
+        .map(|(id, out)| {
+            serde_json::json!({
+                "tool_call_id": id,
+                "output": out,
+            })
+        })
+        .collect::<Vec<_>>();
+    let body = serde_json::json!({
+        "tool_outputs": call_result,
+    });
+    let response = http::request(HttpRequest {
+        head: RequestHead {
+            method: HttpMethod::Post,
+            uri: format!(
+                "https://api.openai.com/v1/threads/{}/runs/{}/submit_tool_outputs",
+                session_id, invoke_id
+            ),
+            headers,
+        },
+        body: serde_json::to_vec(&body).expect("json;qed"),
+    })
+    .map_err(|e| e.to_string())?;
+    Ok(response)
+}
+
 pub(crate) fn retrieve_run(key: String, session_id: &str, invoke_id: &str) -> Result<u64, String> {
     let mut headers = BTreeMap::new();
     headers.insert("Content-Type".to_string(), "application/json".to_string());
@@ -367,7 +404,7 @@ pub struct RunObject {
     pub assistant_id: String,
     pub status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub required_action: Option<BTreeMap<String, String>>,
+    pub required_action: Option<ActionRequired>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_error: Option<LastError>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -487,4 +524,30 @@ pub struct ContentTextAnnotationsFilePathObject {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct FilePath {
     pub file_id: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ActionRequired {
+    pub submit_tool_outputs: ToolCalls,
+    #[serde(rename = "type")]
+    pub ty: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ToolCalls {
+    pub tool_calls: Vec<ToolCall>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ToolCall {
+    pub id: String,
+    #[serde(rename = "type")]
+    pub ty: String,
+    pub function: FunctionCallWithParameter,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct FunctionCallWithParameter {
+    pub name: String,
+    pub arguments: String,
 }

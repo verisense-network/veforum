@@ -12,6 +12,7 @@ hex = "0.4"
 borsh = { version = "1.5.5", features = ["derive"] }
 bs58 = "0.5.1"
 ed25519-dalek = { version = "2.1.1", default-features = false }
+regex = "1.11"
 
 [features]
 std = [

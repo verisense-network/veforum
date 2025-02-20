@@ -57,7 +57,7 @@ pub async fn index_event(
                     .await?;
                 indexer
                     .index("comment")
-                    .add_documents(&threads, Some("id"))
+                    .add_documents(&comments, Some("id"))
                     .await?;
             }
             storage::save_event(&db, id, Event::ThreadPosted(content_id))?;

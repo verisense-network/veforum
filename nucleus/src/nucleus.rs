@@ -3,6 +3,8 @@ use parity_scale_codec::{Decode, Encode};
 use vemodel::{args::*, *};
 use vrs_core_sdk::{get, post, storage, timer};
 
+// const PROMPT: &'static str = ;
+
 // TODO authorization
 #[post]
 pub fn set_llm_key(key: String) -> Result<(), String> {
@@ -18,6 +20,7 @@ pub fn create_community(args: Args<CreateCommunityArg>) -> Result<CommunityId, S
         nonce: _nonce,
         payload,
     } = args;
+    payload.validate()?;
     let id = crate::name_to_community_id(&payload.name)
         .ok_or("Community name should only contains `a-zA-Z0-9_-` with length <= 24".to_string())?;
     let key = trie::to_community_key(id);
@@ -29,14 +32,26 @@ pub fn create_community(args: Args<CreateCommunityArg>) -> Result<CommunityId, S
     crate::agent::get_llm_key(crate::agent::OPENAI)?;
     let CreateCommunityArg {
         name,
+        logo,
+        token,
         slug,
         description,
         prompt,
     } = payload;
+    let token_info = TokenMetadata {
+        symbol: token.symbol,
+        total_issuance: token.total_issuance,
+        decimals: token.decimals,
+        contract: AccountId([0u8; 32]),
+        image: token.image,
+    };
     let community = Community {
         id: hex::encode(id.encode()),
         name: name.clone(),
+        logo,
         slug,
+        // TODO await token create
+        token_info,
         creator: signer,
         description,
         prompt: prompt.clone(),
@@ -46,10 +61,22 @@ pub fn create_community(args: Args<CreateCommunityArg>) -> Result<CommunityId, S
         status: CommunityStatus::Active,
         created_time: timer::now() as i64,
     };
+    let prompt = format!(
+        "你是一名论坛{}版块的管理员，论坛程序将会把每篇帖子或者at你的评论以json格式发送给你。其中，author和mention的数据类型为user_id，使用base58编码，你自己的user_id={}。你需要阅读这些内容，并且根据本版块的规则进行响应，本版块的规则如下：\n{}",
+        name,
+        community.agent_account(),
+        prompt
+    );
     storage::put(&key, community.encode()).map_err(|e| e.to_string())?;
     crate::save_event(Event::CommunityCreated(id))?;
     // TODO move to activate_community
     crate::agent::init_agent(&name, &prompt)?;
+    // TODO remove this
+    storage::put(
+        &trie::to_balance_key(id, community.agent_account()),
+        token.total_issuance.encode(),
+    )
+    .map_err(|e| e.to_string())?;
     Ok(id)
 }
 
@@ -92,6 +119,7 @@ pub fn post_thread(args: Args<PostThreadArg>) -> Result<ContentId, String> {
     let key = trie::to_content_key(id);
     let thread = Thread {
         id: hex::encode(id.encode()),
+        community_name: community.name,
         title,
         content,
         image,
@@ -217,4 +245,38 @@ pub fn get_account_info(account_id: AccountId) -> Result<Option<Account>, String
         }
         None => Ok(None),
     }
+}
+
+#[get]
+pub fn get_balances(
+    account_id: AccountId,
+    gt: Option<CommunityId>,
+    limit: u32,
+) -> Result<Vec<(Community, u64)>, String> {
+    (limit <= 100)
+        .then(|| ())
+        .ok_or("limit should be no more than 100".to_string())?;
+    let key = trie::to_balance_key(gt.unwrap_or_default(), account_id);
+    let result = storage::get_range(&key, storage::Direction::Forward, limit as usize + 1)
+        .map_err(|e| e.to_string())?;
+    let mut r = vec![];
+    for (k, v) in result.into_iter() {
+        if k.len() == 40 && k.starts_with(&key[..36]) {
+            if let Ok((community, balance)) = compose_balance(k, v) {
+                r.push((community, balance));
+            }
+        }
+    }
+    Ok(r)
+}
+
+fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u64), String> {
+    let suffix: [u8; 4] = *(&key[36..].try_into().expect("qed"));
+    let community_id = CommunityId::from_be_bytes(suffix);
+    let balance = u64::decode(&mut &value[..]).map_err(|e| e.to_string())?;
+    let community_key = trie::to_community_key(community_id);
+    let mut community =
+        crate::find::<Community>(&community_key)?.ok_or("Community not found".to_string())?;
+    community.prompt = Default::default();
+    Ok((community, balance))
 }
