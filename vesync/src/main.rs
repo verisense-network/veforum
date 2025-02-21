@@ -3,6 +3,7 @@ mod rpc;
 mod storage;
 
 use meilisearch_sdk::client::*;
+use storage::set_settings;
 use std::str::FromStr;
 use vrs_core_sdk::NucleusId;
 
@@ -16,6 +17,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let origin = rpc::build_client(&verisense_rpc);
     let nucleus_id = NucleusId::from_str(&nucleus_id)?;
     let indexer = Client::new(meili_addr, Some(meili_master_key))?;
+
+    set_settings(&indexer).await;
 
     loop {
         let event_id = storage::get_max_event(&db)? + 1;

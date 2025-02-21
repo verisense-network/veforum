@@ -1,3 +1,4 @@
+use meilisearch_sdk::{client::Client, features::{self, ExperimentalFeatures}, settings::Settings};
 use parity_scale_codec::Encode;
 use rocksdb::{Options, WriteBatchWithTransaction, DB};
 use vemodel::*;
@@ -49,4 +50,19 @@ pub fn del_content(db: &DB, id: ContentId) -> anyhow::Result<()> {
 
 pub fn exists(db: &DB, id: impl AsRef<[u8]>) -> bool {
     db.key_may_exist(id)
+}
+
+pub async fn set_settings(client: &Client) {
+    let settings = Settings::default()
+        .with_filterable_attributes(["id"])
+        .with_sortable_attributes(["created_time"]);
+
+    let community = client.index("community");
+    community.set_settings(&settings).await.unwrap();
+
+    let thread = client.index("thread");
+    thread.set_settings(&settings).await.unwrap();
+
+    let comment = client.index("comment");
+    comment.set_settings(&settings).await.unwrap();
 }
