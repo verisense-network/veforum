@@ -16,14 +16,9 @@ services:
 
   meilisearch:
     image: getmeili/meilisearch:latest
-    command: ["meilisearch", "--master-key", "${MEILI_MASTER_KEY}", "--experimental-enable-containsFilter"]
+    command: ["meilisearch", "--master-key", "${MEILI_MASTER_KEY}"]
     env_file:
       - .env
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
-      interval: 5s
-      timeout: 2s
-      retries: 5
 
   vesync:
     build:
@@ -31,5 +26,4 @@ services:
     env_file:
       - .env
     depends_on:
-      meilisearch:
-        condition: service_healthy
+      - meilisearch
