@@ -1,5 +1,7 @@
+use meilisearch_sdk::{client::Client, settings::Settings};
 use parity_scale_codec::Encode;
 use rocksdb::{Options, WriteBatchWithTransaction, DB};
+use reqwest;
 use vemodel::*;
 
 const EVENT_PREFIX: u128 = 0xffffffff_ffffffff_00000000_00000000;
@@ -49,4 +51,64 @@ pub fn del_content(db: &DB, id: ContentId) -> anyhow::Result<()> {
 
 pub fn exists(db: &DB, id: impl AsRef<[u8]>) -> bool {
     db.key_may_exist(id)
+}
+
+async fn enable_experimental_features(meilisearch_url: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let meili_master_key = std::env::var("MEILI_MASTER_KEY").expect("MEILI_MASTER_KEY must be set");
+    let client = reqwest::Client::new();
+
+    let payload = serde_json::json!({
+        "containsFilter": true
+    });
+
+    let response = client
+        .patch(format!("{}/experimental-features", meilisearch_url))
+        .header("Content-Type", "application/json")
+        .header("Authorization", format!("Bearer {}", meili_master_key))
+        .json(&payload)
+        .send()
+        .await?;
+
+    if response.status().is_success() {
+        println!("Request succeeded: {:?}", response.text().await?);
+    } else {
+        println!("Request failed with status: {}", response.status());
+    }
+
+    Ok(())
+}
+
+
+pub async fn set_settings(client: &Client) {
+    loop {
+        match client.health().await {
+            Ok(health) => {
+                if health.status == "available" {
+                    println!("Service is up and running!");
+                    break;
+                } else {
+                    eprintln!("Received unexpected status: {:?}", health.status);
+                }
+            }
+            Err(e) => {
+                eprintln!("Error sending request: {}", e);
+            }
+        }
+        // Wait a bit before retrying
+        tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
+    }
+    let settings = Settings::default()
+        .with_filterable_attributes(["id"])
+        .with_sortable_attributes(["created_time"]);
+
+    let community = client.index("community");
+    community.set_settings(&settings).await.unwrap();
+
+    let thread = client.index("thread");
+    thread.set_settings(&settings).await.unwrap();
+
+    let comment = client.index("comment");
+    comment.set_settings(&settings).await.unwrap();
+
+    enable_experimental_features(client.get_host()).await.unwrap();
 }

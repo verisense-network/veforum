@@ -3,6 +3,7 @@ mod rpc;
 mod storage;
 
 use meilisearch_sdk::client::*;
+use storage::set_settings;
 use std::str::FromStr;
 use vrs_core_sdk::NucleusId;
 
@@ -17,6 +18,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let nucleus_id = NucleusId::from_str(&nucleus_id)?;
     let indexer = Client::new(meili_addr, Some(meili_master_key))?;
 
+    set_settings(&indexer).await;
+
     loop {
         let event_id = storage::get_max_event(&db)? + 1;
         println!("fetching from event id: {}", event_id);
@@ -26,6 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             events.as_ref().map(|e| e.len()).unwrap_or(0)
         );
         if events.is_err() {
+            println!("events error:{:?}", events.unwrap_err());
             tokio::time::sleep(std::time::Duration::from_secs(10)).await;
             continue;
         }
