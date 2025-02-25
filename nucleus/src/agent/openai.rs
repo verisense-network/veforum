@@ -4,7 +4,7 @@ use vemodel::{Comment, Thread};
 use vrs_core_sdk::http::{self, HttpMethod, HttpRequest, HttpResponse, RequestHead};
 use vrs_core_sdk::CallResult;
 
-pub(crate) fn create_assistant(key: String, name: &str, prompt: &str) -> Result<u64, String> {
+pub(crate) fn create_assistant(key: &str, name: &str, prompt: &str) -> Result<u64, String> {
     let mut headers = BTreeMap::new();
     headers.insert("Content-Type".to_string(), "application/json".to_string());
     headers.insert("OpenAI-Beta".to_string(), "assistants=v2".to_string());
@@ -79,7 +79,7 @@ pub(crate) fn resolve_assistant_id(response: CallResult<HttpResponse>) -> Result
 }
 
 pub(crate) fn create_thread_and_run(
-    key: String,
+    key: &str,
     assistant_id: &str,
     thread: &Thread,
 ) -> Result<u64, String> {
@@ -120,7 +120,7 @@ pub(crate) fn create_thread_and_run(
     Ok(response)
 }
 
-pub(crate) fn create_run(key: String, assistant_id: &str, thread_id: &str) -> Result<u64, String> {
+pub(crate) fn create_run(key: &str, assistant_id: &str, thread_id: &str) -> Result<u64, String> {
     let mut headers = BTreeMap::new();
     headers.insert("Content-Type".to_string(), "application/json".to_string());
     headers.insert("OpenAI-Beta".to_string(), "assistants=v2".to_string());
@@ -142,7 +142,7 @@ pub(crate) fn create_run(key: String, assistant_id: &str, thread_id: &str) -> Re
 }
 
 pub(crate) fn submit_tool_outputs(
-    key: String,
+    key: &str,
     session_id: &str,
     invoke_id: &str,
     call_result: Vec<(String, String)>,
@@ -178,7 +178,7 @@ pub(crate) fn submit_tool_outputs(
     Ok(response)
 }
 
-pub(crate) fn retrieve_run(key: String, session_id: &str, invoke_id: &str) -> Result<u64, String> {
+pub(crate) fn retrieve_run(key: &str, session_id: &str, invoke_id: &str) -> Result<u64, String> {
     let mut headers = BTreeMap::new();
     headers.insert("Content-Type".to_string(), "application/json".to_string());
     headers.insert("OpenAI-Beta".to_string(), "assistants=v2".to_string());
@@ -199,7 +199,7 @@ pub(crate) fn retrieve_run(key: String, session_id: &str, invoke_id: &str) -> Re
 }
 
 pub(crate) fn append_message(
-    key: String,
+    key: &str,
     session_id: &str,
     comment: &Comment,
 ) -> Result<u64, String> {
@@ -235,7 +235,7 @@ pub(crate) fn append_message(
     Ok(response)
 }
 
-pub(crate) fn list_messages(key: String, session_id: &str, invoke_id: &str) -> Result<u64, String> {
+pub(crate) fn list_messages(key: &str, session_id: &str, invoke_id: &str) -> Result<u64, String> {
     let mut headers = BTreeMap::new();
     headers.insert("Content-Type".to_string(), "application/json".to_string());
     headers.insert("OpenAI-Beta".to_string(), "assistants=v2".to_string());

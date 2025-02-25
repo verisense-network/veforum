@@ -31,6 +31,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         if events.is_err() {
             println!("events error:{:?}", events.unwrap_err());
             tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+            println!("{:?}", events.unwrap_err());
             continue;
         }
         let events = events.unwrap();

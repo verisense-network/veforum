@@ -1,14 +1,12 @@
 use crate::trie;
 use parity_scale_codec::{Decode, Encode};
 use vemodel::{args::*, *};
-use vrs_core_sdk::{get, post, storage, timer};
-
-// const PROMPT: &'static str = ;
+use vrs_core_sdk::{get, post, storage, timer, tss};
 
 // TODO authorization
 #[post]
 pub fn set_llm_key(key: String) -> Result<(), String> {
-    crate::agent::set_llm_key(crate::agent::OPENAI, key).map_err(|e| e.to_string())
+    crate::agent::set_sys_key(crate::agent::OPENAI, key).map_err(|e| e.to_string())
 }
 
 #[post]
@@ -29,7 +27,6 @@ pub fn create_community(args: Args<CreateCommunityArg>) -> Result<CommunityId, S
         .is_none()
         .then(|| ())
         .ok_or("community already exists".to_string())?;
-    crate::agent::get_llm_key(crate::agent::OPENAI)?;
     let CreateCommunityArg {
         name,
         logo,
@@ -37,6 +34,9 @@ pub fn create_community(args: Args<CreateCommunityArg>) -> Result<CommunityId, S
         slug,
         description,
         prompt,
+        llm_name,
+        llm_api_host,
+        llm_key,
     } = payload;
     let token_info = TokenMetadata {
         symbol: token.symbol,
@@ -45,50 +45,38 @@ pub fn create_community(args: Args<CreateCommunityArg>) -> Result<CommunityId, S
         contract: AccountId([0u8; 32]),
         image: token.image,
     };
+    let key_id = id.to_be_bytes();
+    let pubkey =
+        tss::tss_get_public_key(tss::CryptoType::Ed25519, key_id).map_err(|e| e.to_string())?;
+    let pubkey: [u8; 32] = pubkey.try_into().map_err(|_| "TSS key error".to_string())?;
+    let llm_vendor = crate::from_llm_settings(llm_name, llm_api_host, llm_key)?;
     let community = Community {
         id: hex::encode(id.encode()),
         name: name.clone(),
         logo,
         slug,
-        // TODO await token create
         token_info,
         creator: signer,
         description,
         prompt: prompt.clone(),
-        // TODO await tss key generate
-        agent_pubkey: AccountId([0u8; 32]),
-        // TODO: WaitingTx
-        status: CommunityStatus::Active,
+        llm_vendor,
+        llm_assistant_id: Default::default(),
+        agent_pubkey: AccountId(pubkey),
+        status: CommunityStatus::WaitingTx(500_000_000),
         created_time: timer::now() as i64,
     };
-    let prompt = format!(
-        "你是一名论坛{}版块的管理员，论坛程序将会把每篇帖子或者at你的评论以json格式发送给你。其中，author和mention的数据类型为user_id，使用base58编码，你自己的user_id={}。你需要阅读这些内容，并且根据本版块的规则进行响应，本版块的规则如下：\n{}",
-        name,
-        community.agent_account(),
-        prompt
-    );
-    storage::put(&key, community.encode()).map_err(|e| e.to_string())?;
+    crate::save(&key, &community)?;
     crate::save_event(Event::CommunityCreated(id))?;
-    // TODO move to activate_community
-    crate::agent::init_agent(&name, &prompt)?;
-    // TODO remove this
-    storage::put(
-        &trie::to_balance_key(id, community.agent_account()),
-        token.total_issuance.encode(),
-    )
-    .map_err(|e| e.to_string())?;
     Ok(id)
 }
 
 #[post]
-pub fn activate_community(community: String, _tx: [u8; 32]) -> Result<(), String> {
-    let community_id = crate::name_to_community_id(&community).ok_or("Invalid name".to_string())?;
-    let key = trie::to_community_key(community_id);
-    let mut community = crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
-    // TODO check tx_hash
-    community.status = CommunityStatus::Active;
-    storage::put(&key, community.encode()).map_err(|e| e.to_string())?;
-    crate::save_event(Event::CommunityUpdated(community_id))?;
+pub fn activate_community(arg: ActivateCommunityArg) -> Result<(), String> {
+    let ActivateCommunityArg { community, tx } = arg;
+    let id = crate::name_to_community_id(&community).ok_or("Invalid name".to_string())?;
+    let key = trie::to_community_key(id);
+    let community = crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
+    crate::agent::check_transfering(&community, tx)?;
     Ok(())
 }
 
@@ -125,9 +113,10 @@ pub fn post_thread(args: Args<PostThreadArg>) -> Result<ContentId, String> {
         image,
         author: signer,
         mention,
+        llm_session_id: Default::default(),
         created_time: timer::now() as i64,
     };
-    storage::put(&key, thread.encode()).map_err(|e| e.to_string())?;
+    crate::save(&key, &thread)?;
     crate::save_event(Event::ThreadPosted(id))?;
     crate::agent::create_session_and_run(&thread)?;
     Ok(id)
@@ -162,19 +151,20 @@ pub fn post_comment(args: Args<PostCommentArg>) -> Result<ContentId, String> {
     let reply_to = reply_to
         .filter(|c| trie::is_comment(*c) && id > *c)
         .map(|c| hex::encode(c.encode()));
+    let mention_agent = mention.contains(&community.agent_pubkey);
     let comment = Comment {
         id: hex::encode(id.encode()),
         content,
         image,
         author: signer,
         mention,
-        reply_to: reply_to.clone(),
+        reply_to,
         created_time: timer::now() as i64,
     };
-    storage::put(&key, comment.encode()).map_err(|e| e.to_string())?;
+    crate::save(&key, &comment)?;
     crate::save_event(Event::CommentPosted(id))?;
-    if reply_to.is_some() {
-        crate::agent::append_message(&comment)?;
+    if mention_agent {
+        crate::agent::append_message_then_run(&comment)?;
     }
     Ok(id)
 }
@@ -183,7 +173,7 @@ pub fn post_comment(args: Args<PostCommentArg>) -> Result<ContentId, String> {
 pub fn get_community(id: CommunityId) -> Result<Option<Community>, String> {
     let key = trie::to_community_key(id);
     let mut community = crate::find::<Community>(&key)?;
-    community.as_mut().map(|c| c.prompt = Default::default());
+    community.as_mut().map(|c| c.mask());
     Ok(community)
 }
 

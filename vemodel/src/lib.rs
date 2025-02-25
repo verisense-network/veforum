@@ -1,3 +1,5 @@
+use std::u128;
+
 use borsh::{BorshDeserialize, BorshSerialize};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
@@ -37,10 +39,10 @@ pub enum Event {
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize, Eq, PartialEq)]
 pub enum CommunityStatus {
-    PendingCreation = 0,
-    WaitingTx = 1,
-    Active = 2,
-    Frozen = 3,
+    PendingCreation,
+    WaitingTx(u64),
+    Active,
+    Frozen(u64),
 }
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
@@ -54,6 +56,8 @@ pub struct Community {
     pub prompt: String,
     pub creator: AccountId,
     pub agent_pubkey: AccountId,
+    pub llm_vendor: LlmVendor,
+    pub llm_assistant_id: String,
     pub status: CommunityStatus,
     pub created_time: i64,
 }
@@ -66,11 +70,21 @@ impl Community {
         CommunityId::from_be_bytes(v[..4].try_into().unwrap())
     }
 
-    pub fn agent_account(&self) -> AccountId {
-        let mut hasher = Sha256::new();
-        hasher.update(self.name.as_bytes());
-        let v: [u8; 32] = hasher.finalize().into();
-        AccountId(v)
+    pub fn mask(&mut self) {
+        self.prompt = Default::default();
+        match &self.llm_vendor {
+            LlmVendor::OpenAI { .. } => {
+                self.llm_vendor = LlmVendor::OpenAI {
+                    key: Default::default(),
+                };
+            }
+            LlmVendor::DeepSeek { key: _key, host } => {
+                self.llm_vendor = LlmVendor::DeepSeek {
+                    key: Default::default(),
+                    host: host.clone(),
+                };
+            }
+        }
     }
 }
 
@@ -83,6 +97,7 @@ pub struct Thread {
     pub image: Option<String>,
     pub author: AccountId,
     pub mention: Vec<AccountId>,
+    pub llm_session_id: String,
     pub created_time: i64,
 }
 
@@ -112,6 +127,11 @@ impl Comment {
     pub fn id(&self) -> ContentId {
         let id = hex::decode(&self.id).expect("invalid thread id");
         ContentId::decode(&mut &id[..]).expect("invalid thread id")
+    }
+
+    pub fn thread_id(&self) -> ContentId {
+        let id = self.id();
+        id & (u128::MAX - u32::MAX as u128)
     }
 
     pub fn community_id(&self) -> CommunityId {
@@ -221,6 +241,21 @@ impl std::fmt::Display for Signature {
     }
 }
 
+#[derive(Debug, Clone, Decode, Encode, Serialize, Deserialize)]
+pub enum LlmVendor {
+    OpenAI { key: String },
+    DeepSeek { key: String, host: String },
+}
+
+impl LlmVendor {
+    pub fn key<'a>(&'a self) -> &'a str {
+        match self {
+            Self::OpenAI { key } => key,
+            Self::DeepSeek { key, .. } => key,
+        }
+    }
+}
+
 pub mod args {
     use super::*;
     use ed25519_dalek::{Signature as Ed25519Signature, Verifier, VerifyingKey};
@@ -268,6 +303,9 @@ pub mod args {
         pub slug: String,
         pub description: String,
         pub prompt: String,
+        pub llm_name: String,
+        pub llm_api_host: Option<String>,
+        pub llm_key: Option<String>,
     }
 
     const COMMUNITY_REGEX: &'static str = r"^[a-zA-Z0-9_-]{3,24}$";
@@ -307,6 +345,12 @@ pub mod args {
                 .ok_or("Invalid community name".to_string())?;
             self.token.validate()
         }
+    }
+
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
+    pub struct ActivateCommunityArg {
+        pub community: String,
+        pub tx: String,
     }
 
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]

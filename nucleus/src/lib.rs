@@ -3,17 +3,58 @@ mod nucleus;
 mod trie;
 
 use sha2::{Digest, Sha256};
-use vemodel::{AccountId, CommunityId, ContentId, Event, EventId};
+use vemodel::{AccountId, CommunityId, ContentId, Event, EventId, LlmVendor};
 use vrs_core_sdk::{
     codec::{Decode, Encode},
     storage,
 };
+
+pub(crate) fn from_llm_settings(
+    llm_name: String,
+    llm_api_host: Option<String>,
+    llm_key: Option<String>,
+) -> Result<LlmVendor, String> {
+    match llm_name.as_ref() {
+        "OpenAI" => {
+            if llm_key.is_none() {
+                let default_key = crate::agent::get_sys_key(crate::agent::OPENAI)?;
+                Ok(LlmVendor::OpenAI { key: default_key })
+            } else {
+                Ok(LlmVendor::OpenAI {
+                    key: llm_key.unwrap(),
+                })
+            }
+        }
+        "DeepSeek" => {
+            false
+                .then(|| ())
+                .ok_or("DeepSeek is not supported".to_string())?;
+            if llm_key.is_none() {
+                let default_key = crate::agent::get_sys_key(crate::agent::DEEPSEEK)?;
+                Ok(LlmVendor::DeepSeek {
+                    key: default_key,
+                    host: crate::agent::DEEPSEEK_API_HOST.to_string(),
+                })
+            } else {
+                Ok(LlmVendor::DeepSeek {
+                    key: llm_key.unwrap(),
+                    host: llm_api_host.unwrap_or(crate::agent::DEEPSEEK_API_HOST.to_string()),
+                })
+            }
+        }
+        _ => Err("unsupported LLM vendor".to_string()),
+    }
+}
 
 pub(crate) fn find<T: Decode>(key: &[u8]) -> Result<Option<T>, String> {
     let r = storage::get(key).map_err(|e| e.to_string())?;
     r.map(|d| T::decode(&mut &d[..]))
         .transpose()
         .map_err(|e| e.to_string())
+}
+
+pub(crate) fn save<T: Encode>(key: &[u8], value: &T) -> Result<(), String> {
+    storage::put(key, value.encode()).map_err(|e| e.to_string())
 }
 
 pub(crate) fn name_to_community_id(name: &str) -> Option<CommunityId> {
@@ -88,6 +129,7 @@ pub(crate) fn transfer(
     if from_balance < amount {
         return Err("insufficient balance".to_string());
     }
+    // TODO we need transaction
     storage::put(&from_key, (from_balance - amount).encode()).map_err(|e| e.to_string())?;
     storage::put(&to_key, (to_balance + amount).encode()).map_err(|e| e.to_string())?;
     Ok(())

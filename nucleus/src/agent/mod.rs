@@ -1,4 +1,5 @@
 pub(crate) mod openai;
+pub(crate) mod solana;
 
 use std::str::FromStr;
 
@@ -9,14 +10,16 @@ use vrs_core_sdk::{
 };
 
 pub const OPENAI: [u8; 4] = *b"opai";
-// pub const DEEPSEEK: [u8; 4] = *b"dpsk";
+pub const DEEPSEEK: [u8; 4] = *b"dpsk";
 
-pub(crate) fn set_llm_key(vendor: [u8; 4], key: String) -> Result<(), String> {
+pub const DEEPSEEK_API_HOST: &'static str = "https://api.deepseek.ai";
+
+pub(crate) fn set_sys_key(vendor: [u8; 4], key: String) -> Result<(), String> {
     let ty = crate::trie::llm_key(vendor);
     storage::put(&ty, key.into_bytes()).map_err(|e| e.to_string())
 }
 
-pub(crate) fn get_llm_key(vendor: [u8; 4]) -> Result<String, String> {
+pub(crate) fn get_sys_key(vendor: [u8; 4]) -> Result<String, String> {
     let ty = crate::trie::llm_key(vendor);
     storage::get(&ty)
         .map_err(|e| e.to_string())?
@@ -26,34 +29,13 @@ pub(crate) fn get_llm_key(vendor: [u8; 4]) -> Result<String, String> {
         .ok_or("LLM key not found".to_string())
 }
 
-pub(crate) fn save_session_id(content_id: ContentId, session_id: String) -> Result<(), String> {
-    let session_key = crate::trie::session_key(content_id);
-    storage::put(session_key, session_id.into_bytes()).map_err(|e| e.to_string())
-}
-
-pub(crate) fn get_session_id(content_id: ContentId) -> Result<String, String> {
-    let session_key = crate::trie::session_key(content_id);
-    storage::get(&session_key)
-        .map_err(|e| e.to_string())?
-        .map(|b| String::from_utf8(b))
-        .transpose()
-        .map_err(|_| "Invalid session id".to_string())?
-        .ok_or("Session id not found".to_string())
-}
-
-pub(crate) fn get_agent_id(community_id: CommunityId) -> Result<String, String> {
-    let assistant_key = crate::trie::agent_key(community_id);
-    storage::get(&assistant_key)
-        .map_err(|e| e.to_string())?
-        .map(|b| String::from_utf8(b))
-        .transpose()
-        .map_err(|_| "Invalid assistant id".to_string())?
-        .ok_or("Assistant id not found".to_string())
-}
-
-pub(crate) fn set_agent_id(community_id: CommunityId, assistant_id: String) -> Result<(), String> {
-    let assistant_key = crate::trie::agent_key(community_id);
-    storage::put(assistant_key, assistant_id.into_bytes()).map_err(|e| e.to_string())
+fn decorate_prompt(community: &str, account: &AccountId, prompt: &str) -> String {
+    format!(
+        "你是一名论坛{}版块的管理员，论坛程序将会把每篇帖子或者at你的评论以json格式发送给你。其中，author和mention的数据类型为user_id，使用base58编码，你自己的user_id={}。你需要阅读这些内容，并且根据本版块的规则进行响应，本版块的规则如下：\n{}",
+        community,
+        account,
+        prompt
+    )
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Encode, Decode)]
@@ -64,6 +46,7 @@ pub enum HttpCallType {
     CheckInvocationStatus(ContentId),
     PullingMessage(ContentId),
     SubmittingToolCall(ContentId),
+    CheckingTx(CommunityId),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -109,9 +92,33 @@ fn untrace(
 ) -> Result<(), String> {
     storage::del(key).map_err(|e| e.to_string())?;
     match call_type {
+        HttpCallType::CheckingTx(community_id) => {
+            let key = crate::trie::to_community_key(community_id);
+            let mut community =
+                crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
+            let agent_addr = community.agent_pubkey.to_string();
+            let r = solana::on_checking_transfer(&agent_addr, response).map_err(|e| e.to_string());
+            if let Ok(_received) = r {
+                // TODO
+            }
+            community.status = CommunityStatus::Active;
+            crate::save(&key, &community)?;
+            // TODO move this to after token issued
+            storage::put(
+                &crate::trie::to_balance_key(community_id, community.agent_pubkey),
+                community.token_info.total_issuance.encode(),
+            )
+            .map_err(|e| e.to_string())?;
+            crate::agent::init_agent(&community)?;
+            crate::save_event(Event::CommunityUpdated(community.id()))?;
+        }
         HttpCallType::CreatingAgent(community_id) => {
             let assistant_id = openai::resolve_assistant_id(response)?;
-            set_agent_id(community_id, assistant_id)?;
+            let key = crate::trie::to_community_key(community_id);
+            let mut community =
+                crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
+            community.llm_assistant_id = assistant_id;
+            crate::save(&key, &community)?;
         }
         HttpCallType::AppendingMessage(content_id) => {
             run(content_id)?;
@@ -128,8 +135,17 @@ fn untrace(
                 _ => InvocationStatus::Failed,
             };
             if vemodel::is_thread(content_id) {
-                save_session_id(content_id, run.thread_id.clone())?;
+                let mut thread = crate::find::<Thread>(&crate::trie::to_content_key(content_id))?
+                    .ok_or("Thread not found".to_string())?;
+                if thread.llm_session_id.is_empty() {
+                    thread.llm_session_id = run.thread_id.clone();
+                    crate::save(&crate::trie::to_content_key(content_id), &thread)?;
+                }
             }
+            let community_id = vemodel::get_belongs_to(content_id);
+            let community_key = crate::trie::to_community_key(community_id);
+            let community = crate::find::<Community>(&community_key)?
+                .ok_or("Community not found".to_string())?;
             match status {
                 InvocationStatus::Running => {
                     let _ = set_timer!(
@@ -142,10 +158,6 @@ fn untrace(
                 }
                 InvocationStatus::WaitingFunctionCall => {
                     if let Some(actions) = run.required_action {
-                        let community_id = vemodel::get_belongs_to(content_id);
-                        let community_key = crate::trie::to_community_key(community_id);
-                        let community = crate::find::<Community>(&community_key)?
-                            .ok_or("Community not found".to_string())?;
                         let call_result = actions
                             .submit_tool_outputs
                             .tool_calls
@@ -164,11 +176,22 @@ fn untrace(
                                 )
                             })
                             .collect::<Vec<(String, String)>>();
-                        submit_tool_call(content_id, &run.thread_id, &run.id, call_result)?;
+                        submit_tool_call(
+                            community.llm_vendor.key(),
+                            content_id,
+                            &run.thread_id,
+                            &run.id,
+                            call_result,
+                        )?;
                     }
                 }
                 InvocationStatus::Completed => {
-                    pull_messages(content_id, &run.thread_id, &run.id)?;
+                    pull_messages(
+                        community.llm_vendor.key(),
+                        content_id,
+                        &run.thread_id,
+                        &run.id,
+                    )?;
                 }
                 InvocationStatus::Failed => {
                     vrs_core_sdk::eprintln!("{:?}", serde_json::to_string(&run))
@@ -195,7 +218,6 @@ fn untrace(
                 let community_key = crate::trie::to_community_key(community_id);
                 let community: Community =
                     crate::find(&community_key)?.ok_or("Community not found".to_string())?;
-                let agent_account = community.agent_account();
                 let key = crate::trie::to_content_key(id);
                 let reply_to =
                     crate::trie::is_comment(content_id).then(|| hex::encode(content_id.encode()));
@@ -203,12 +225,12 @@ fn untrace(
                     id: hex::encode(id.encode()),
                     content,
                     image: None,
-                    author: agent_account,
+                    author: community.agent_pubkey,
                     mention: vec![],
                     reply_to,
                     created_time: timer::now() as i64,
                 };
-                storage::put(&key, comment.encode()).map_err(|e| e.to_string())?;
+                crate::save(&key, &comment)?;
                 crate::save_event(Event::CommentPosted(id))?;
             }
         }
@@ -222,77 +244,93 @@ pub(crate) fn check_invocation_status(
     session_id: String,
     invoke_id: String,
 ) -> Result<(), String> {
-    let key = get_llm_key(OPENAI)?;
-    let id = openai::retrieve_run(key, &session_id, &invoke_id)?;
+    let community_key = crate::trie::to_community_key(vemodel::get_belongs_to(content_id));
+    let community =
+        crate::find::<Community>(&community_key)?.ok_or("Community not found".to_string())?;
+    let id = openai::retrieve_run(community.llm_vendor.key(), &session_id, &invoke_id)?;
     trace(id, HttpCallType::CheckInvocationStatus(content_id)).map_err(|e| e.to_string())
 }
 
-pub(crate) fn init_agent(community: &str, prompt: &str) -> Result<(), String> {
-    let community_id = crate::name_to_community_id(community).expect("caller check;");
-    let key = get_llm_key(OPENAI)?;
-    let id = openai::create_assistant(key, community, prompt)?;
-    trace(id, HttpCallType::CreatingAgent(community_id)).map_err(|e| e.to_string())
+pub(crate) fn init_agent(community: &Community) -> Result<(), String> {
+    let prompt = decorate_prompt(&community.name, &community.agent_pubkey, &community.prompt);
+    let id = openai::create_assistant(community.llm_vendor.key(), &community.name, &prompt)?;
+    trace(id, HttpCallType::CreatingAgent(community.id())).map_err(|e| e.to_string())
 }
 
 pub(crate) fn create_session_and_run(thread: &Thread) -> Result<(), String> {
     let community_id = thread.community_id();
-    let assistant_id = get_agent_id(community_id)?;
-    let key = get_llm_key(OPENAI)?;
-    let id = openai::create_thread_and_run(key, &assistant_id, thread)?;
+    let community = crate::find::<Community>(&crate::trie::to_community_key(community_id))?
+        .ok_or("Community not found".to_string())?;
+    let id = openai::create_thread_and_run(
+        community.llm_vendor.key(),
+        &community.llm_assistant_id,
+        thread,
+    )?;
     trace(id, HttpCallType::InvokingLLM(thread.id())).map_err(|e| e.to_string())
 }
 
-pub(crate) fn run(content_id: ContentId) -> Result<(), String> {
+fn run(content_id: ContentId) -> Result<(), String> {
+    if vemodel::is_thread(content_id) {
+        return Ok(());
+    }
     let comment = crate::find::<Comment>(&crate::trie::to_content_key(content_id))?
         .ok_or("Comment not found".to_string())?;
     let community_id = comment.community_id();
-    let assistant_id = get_agent_id(community_id)?;
-    let key = get_llm_key(OPENAI)?;
-    let session_id = get_session_id(content_id)?;
-    let id = openai::create_run(key, &assistant_id, &session_id)?;
+    let community = crate::find::<Community>(&crate::trie::to_community_key(community_id))?
+        .ok_or("Community not found".to_string())?;
+    let thread_id = comment.thread_id();
+    let thread = crate::find::<Thread>(&crate::trie::to_content_key(thread_id))?
+        .ok_or("Thread not found".to_string())?;
+    let id = openai::create_run(
+        community.llm_vendor.key(),
+        &community.llm_assistant_id,
+        &thread.llm_session_id,
+    )?;
     trace(id, HttpCallType::InvokingLLM(content_id)).map_err(|e| e.to_string())
 }
 
-pub(crate) fn append_message(comment: &Comment) -> Result<(), String> {
-    let session_id = get_session_id(comment.id())?;
-    let key = get_llm_key(OPENAI)?;
-    let id = openai::append_message(key, &session_id, comment)?;
+pub(crate) fn append_message_then_run(comment: &Comment) -> Result<(), String> {
+    let thread_key = crate::trie::to_content_key(comment.thread_id());
+    let thread = crate::find::<Thread>(&thread_key)?.ok_or("Thread not found".to_string())?;
+    let community_key = crate::trie::to_community_key(comment.community_id());
+    let community =
+        crate::find::<Community>(&community_key)?.ok_or("Community not found".to_string())?;
+    let id = openai::append_message(community.llm_vendor.key(), &thread.llm_session_id, comment)?;
     trace(id, HttpCallType::AppendingMessage(comment.id())).map_err(|e| e.to_string())
 }
 
-pub(crate) fn pull_messages(
+fn pull_messages(
+    key: &str,
     content_id: ContentId,
     session_id: &str,
     invoke_id: &str,
 ) -> Result<(), String> {
-    let key = get_llm_key(OPENAI)?;
     let id = openai::list_messages(key, session_id, invoke_id)?;
     trace(id, HttpCallType::PullingMessage(content_id)).map_err(|e| e.to_string())
 }
 
-pub(crate) fn submit_tool_call(
+fn submit_tool_call(
+    key: &str,
     content_id: ContentId,
     session_id: &str,
     invoke_id: &str,
     call_result: Vec<(String, String)>,
 ) -> Result<(), String> {
-    let key = get_llm_key(OPENAI)?;
     let id = openai::submit_tool_outputs(key, session_id, invoke_id, call_result)?;
     trace(id, HttpCallType::SubmittingToolCall(content_id)).map_err(|e| e.to_string())
 }
 
-pub(crate) fn call_tool(on: &Community, func: &str, params: &str) -> Result<String, String> {
+fn call_tool(on: &Community, func: &str, params: &str) -> Result<String, String> {
     let json: serde_json::Value =
         serde_json::from_str(params).map_err(|_| "Invalid parameters".to_string())?;
     match func {
-        "agent_balance" => crate::balance_of(on.id(), on.agent_account()).map(|v| v.to_string()),
+        "agent_balance" => crate::balance_of(on.id(), on.agent_pubkey).map(|v| v.to_string()),
         "transfer" => {
             let recipient = json["recipient"].as_str().ok_or("Invalid recipient")?;
             let recipient =
                 AccountId::from_str(recipient).map_err(|_| "Invalid param: recipient")?;
             let amount = json["amount"].as_u64().ok_or("Invalid amount")?;
-            crate::transfer(on.id(), on.agent_account(), recipient, amount)
-                .map(|_| "Ok".to_string())
+            crate::transfer(on.id(), on.agent_pubkey, recipient, amount).map(|_| "Ok".to_string())
         }
         "balance_of" => {
             let account = json["account"].as_str().ok_or("Invalid account")?;
@@ -300,5 +338,15 @@ pub(crate) fn call_tool(on: &Community, func: &str, params: &str) -> Result<Stri
             crate::balance_of(on.id(), account).map(|v| v.to_string())
         }
         _ => Err("Invalid tool".to_string()),
+    }
+}
+
+pub(crate) fn check_transfering(community: &Community, tx: String) -> Result<(), String> {
+    match community.status {
+        CommunityStatus::PendingCreation | CommunityStatus::Active => Ok(()),
+        CommunityStatus::WaitingTx(_) | CommunityStatus::Frozen(_) => {
+            let id = solana::initiate_checking_transfer(&tx)?;
+            trace(id, HttpCallType::CheckingTx(community.id())).map_err(|e| e.to_string())
+        }
     }
 }

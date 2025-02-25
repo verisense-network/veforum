@@ -11,12 +11,12 @@ pub const MIN_COMMUNITIE_KEY: u64 = 0x00000001_00000000;
 pub const MAX_COMMUNITY_KEY: u64 = 0x00000001_ffffffff;
 pub const MIN_CONTENT_KEY: u128 = 0x00000002_00000000_00000000_00000000;
 pub const MAX_CONTENT_KEY: u128 = 0x00000002_ffffffff_ffffffff_ffffffff;
+
 pub const ACCOUNT_KEY_PREFIX: u64 = 0x00000003_00000000;
+pub const BALANCE_KEY_PREFIX: u32 = 0x00000004;
+
 pub const HTTP_MASK: u128 = 0x0000000f_00000000_00000000_00000000;
 pub const KEY_STORE: u64 = 0x00000010_00000000;
-pub const AGENT_ID_KEY: u64 = 0x00000011_00000000;
-pub const SESSION_ID_KEY: u128 = 0x00000012_00000000_00000000_00000000;
-pub const BALANCE_KEY_PREFIX: u32 = 0x00000013;
 
 pub fn is_comment(content_id: ContentId) -> bool {
     content_id & 0xffffffff != 0
@@ -26,14 +26,6 @@ pub fn to_community_key(community_id: CommunityId) -> [u8; 8] {
     let key = MIN_COMMUNITIE_KEY | community_id as u64;
     key.to_be_bytes()
 }
-
-// pub fn to_community_id(key: &[u8]) -> Result<CommunityId, String> {
-//     let key = key
-//         .try_into()
-//         .map_err(|_| "invalid community id".to_string())?;
-//     let id = u64::from_be_bytes(key);
-//     Ok(id as CommunityId)
-// }
 
 pub fn to_content_key(content_id: ContentId) -> [u8; 16] {
     let key = MIN_CONTENT_KEY | content_id;
@@ -69,14 +61,6 @@ pub fn to_event_id(key: &[u8]) -> Result<EventId, String> {
 
 pub fn http_trace_key(id: u64) -> [u8; 16] {
     (HTTP_MASK | id as u128).to_be_bytes()
-}
-
-pub fn agent_key(community_id: CommunityId) -> [u8; 8] {
-    (AGENT_ID_KEY | (community_id as u64)).to_be_bytes()
-}
-
-pub fn session_key(content_id: ContentId) -> [u8; 16] {
-    (SESSION_ID_KEY | content_id & (u128::MAX - u32::MAX as u128)).to_be_bytes()
 }
 
 pub fn llm_key(vendor: [u8; 4]) -> [u8; 8] {
