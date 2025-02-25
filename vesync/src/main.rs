@@ -29,6 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             events.as_ref().map(|e| e.len()).unwrap_or(0)
         );
         if events.is_err() {
+            println!("events error:{:?}", events.unwrap_err());
             tokio::time::sleep(std::time::Duration::from_secs(10)).await;
             continue;
         }
