@@ -147,6 +147,9 @@ impl Into<vemodel::args::CreateCommunityArg> for CommunityCommand {
             },
             description: self.description,
             prompt: self.prompt,
+            llm_name: "OpenAI".to_string(),
+            llm_api_host: None,
+            llm_key: None,
         }
     }
 }
