@@ -270,6 +270,10 @@ pub mod args {
     use parity_scale_codec::{Decode, Encode};
     use serde::{Deserialize, Serialize};
 
+    const COMMUNITY_REGEX: &'static str = r"^[a-zA-Z0-9_-]{3,24}$";
+    const TOKEN_REGEX: &'static str = r"^[a-zA-Z0-9]{3,8}$";
+    const NAME_REGEX: &'static str = r"^[\p{L}\p{N}_-]{3,30}$";
+
     #[derive(Debug, Clone, Decode, Encode)]
     pub struct Args<T> {
         pub signature: Signature,
@@ -318,9 +322,6 @@ pub mod args {
         pub llm_api_host: Option<String>,
         pub llm_key: Option<String>,
     }
-
-    const COMMUNITY_REGEX: &'static str = r"^[a-zA-Z0-9_-]{3,24}$";
-    const TOKEN_REGEX: &'static str = r"^[a-zA-Z0-9]{3,8}$";
 
     #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
     pub struct TokenMetadataArg {
@@ -382,8 +383,6 @@ pub mod args {
     pub struct SetAliasArg {
         pub alias: String,
     }
-
-    const NAME_REGEX: &'static str = r"^[\p{L}\p{N}_-]{3,24}$";
 
     impl SetAliasArg {
         pub fn validate(&self) -> Result<(), String> {
