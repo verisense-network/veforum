@@ -383,7 +383,7 @@ pub mod args {
         pub alias: String,
     }
 
-    const NAME_REGEX: &'static str = r"^[\p{L}\p{N}_-]+$";
+    const NAME_REGEX: &'static str = r"^[\p{L}\p{N}_-]{3,24}$";
 
     impl SetAliasArg {
         pub fn validate(&self) -> Result<(), String> {
