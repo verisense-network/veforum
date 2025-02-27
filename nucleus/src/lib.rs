@@ -3,11 +3,13 @@ mod nucleus;
 mod trie;
 
 use sha2::{Digest, Sha256};
-use vemodel::{AccountId, CommunityId, ContentId, Event, EventId, LlmVendor};
+use vemodel::{Account, AccountData, AccountId, CommunityId, ContentId, Event, EventId, LlmVendor};
 use vrs_core_sdk::{
     codec::{Decode, Encode},
     storage,
 };
+
+pub const MIN_ACTIVATE_FEE: u64 = 5_000_000;
 
 pub(crate) fn from_llm_settings(
     llm_name: String,
@@ -108,6 +110,43 @@ pub(crate) fn allocate_comment_id(thread_id: ContentId) -> Result<ContentId, Str
     Ok(r + 1)
 }
 
+pub(crate) fn get_account_info(account_id: AccountId) -> Result<Account, String> {
+    let key = trie::to_account_key(account_id);
+    match crate::find::<AccountData>(&key)? {
+        Some(AccountData::Pubkey(data)) => Ok(data),
+        Some(AccountData::AliasOf(id)) => {
+            let key = trie::to_account_key(id);
+            if let Some(AccountData::Pubkey(data)) = crate::find::<AccountData>(&key)? {
+                Ok(data)
+            } else {
+                Err("account not found".to_string())
+            }
+        }
+        None => Ok(Account::new(account_id)),
+    }
+}
+
+pub(crate) fn get_nonce(account_id: AccountId) -> Result<u64, String> {
+    let key = trie::to_account_key(account_id);
+    match crate::find::<AccountData>(&key)? {
+        Some(AccountData::Pubkey(data)) => Ok(data.nonce),
+        Some(AccountData::AliasOf(_)) => Err("alias account could not be used to sign".to_string()),
+        None => Ok(0),
+    }
+}
+
+pub(crate) fn incr_nonce(account_id: AccountId) -> Result<(), String> {
+    let key = trie::to_account_key(account_id);
+    let mut account = match crate::find::<AccountData>(&key)? {
+        Some(AccountData::Pubkey(data)) => Ok(data),
+        Some(AccountData::AliasOf(_)) => Err("alias account could not be used to sign".to_string()),
+        None => Ok(Account::new(account_id)),
+    }?;
+    account.nonce += 1;
+    storage::put(&key, AccountData::Pubkey(account).encode()).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 pub(crate) fn transfer(
     community_id: CommunityId,
     from: AccountId,
@@ -142,4 +181,11 @@ pub(crate) fn balance_of(community_id: CommunityId, account_id: AccountId) -> Re
         .map(|d| u64::decode(&mut &d[..]).map_err(|e| e.to_string()))
         .transpose()
         .map(|v| v.unwrap_or(0))
+}
+
+pub(crate) fn into_account_id(alias: &str) -> AccountId {
+    let mut hasher = Sha256::new();
+    hasher.update(alias.as_bytes());
+    let v = hasher.finalize();
+    AccountId(v.into())
 }

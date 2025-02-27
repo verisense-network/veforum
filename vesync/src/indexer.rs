@@ -15,7 +15,7 @@ pub async fn index_event(
     event: Event,
 ) -> anyhow::Result<()> {
     match event {
-        Event::CommunityCreated(community_id) | Event::CommunityUpdated(community_id) => {
+        Event::CommunityCreated(community_id) => {
             if !storage::exists(&db, community_id.to_be_bytes()) {
                 let community = rpc::get_community(origin, nucleus_id, community_id)
                     .await
@@ -27,6 +27,17 @@ pub async fn index_event(
                 index.add_documents(&[community], Some("id")).await?;
             }
             storage::save_event(&db, id, Event::CommunityCreated(community_id))?;
+        }
+        Event::CommunityUpdated(community_id) => {
+            let community = rpc::get_community(origin, nucleus_id, community_id)
+                .await
+                .inspect_err(|e| println!("Error: {:?}", e))
+                .map_err(|_| anyhow::anyhow!("fetch community failed"))?
+                .ok_or_else(|| anyhow::anyhow!("community not found"))?;
+            storage::save_community(&db, &community)?;
+            let index = indexer.index("community");
+            index.add_documents(&[community], Some("id")).await?;
+            storage::save_event(&db, id, Event::CommunityUpdated(community_id))?;
         }
         Event::ThreadPosted(content_id) => {
             if !storage::exists(&db, content_id.to_be_bytes()) {

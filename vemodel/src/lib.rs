@@ -216,6 +216,14 @@ pub enum AccountData {
 }
 
 impl Account {
+    pub fn new(pubkey: Pubkey) -> Self {
+        Self {
+            nonce: 0,
+            pubkey,
+            alias: None,
+        }
+    }
+
     pub fn name(&self) -> String {
         self.alias
             .clone()
@@ -271,19 +279,22 @@ pub mod args {
     }
 
     pub trait Verifiable<T: Encode> {
-        fn ensure_signed(&self) -> Result<(), String>;
+        fn ensure_signed(&self, nonce: u64) -> Result<(), String>;
 
         fn prehash(&self) -> [u8; 32];
     }
 
     impl<T: Encode> Verifiable<T> for Args<T> {
-        fn ensure_signed(&self) -> Result<(), String> {
-            // let prehash = self.prehash();
-            // let pubkey = VerifyingKey::from_bytes(&self.signer.0).map_err(|_| "invalid pubkey")?;
-            // let signature = Ed25519Signature::from_bytes(&self.signature.0);
-            // pubkey
-            //     .verify(&prehash, &signature)
-            //     .map_err(|_| "invalid signature")?;
+        fn ensure_signed(&self, nonce: u64) -> Result<(), String> {
+            (self.nonce == nonce)
+                .then(|| ())
+                .ok_or("invalid nonce".to_string())?;
+            let prehash = self.prehash();
+            let pubkey = VerifyingKey::from_bytes(&self.signer.0).map_err(|_| "invalid pubkey")?;
+            let signature = Ed25519Signature::from_bytes(&self.signature.0);
+            pubkey
+                .verify(&prehash, &signature)
+                .map_err(|_| "invalid signature")?;
             Ok(())
         }
 
@@ -323,8 +334,6 @@ pub mod args {
         pub fn validate(&self) -> Result<(), String> {
             let re = regex::Regex::new(TOKEN_REGEX).unwrap();
             re.captures(&self.symbol)
-                .is_some()
-                .then(|| ())
                 .ok_or("Invalid token name".to_string())?;
             (self.total_issuance > 0 && self.total_issuance <= (1u64 << 53))
                 .then(|| ())
@@ -340,8 +349,6 @@ pub mod args {
         pub fn validate(&self) -> Result<(), String> {
             let re = regex::Regex::new(COMMUNITY_REGEX).unwrap();
             re.captures(&self.name)
-                .is_some()
-                .then(|| ())
                 .ok_or("Invalid community name".to_string())?;
             self.token.validate()
         }
@@ -374,5 +381,16 @@ pub mod args {
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
     pub struct SetAliasArg {
         pub alias: String,
+    }
+
+    const NAME_REGEX: &'static str = r"^[\p{L}\p{N}_-]+$";
+
+    impl SetAliasArg {
+        pub fn validate(&self) -> Result<(), String> {
+            let re = regex::Regex::new(NAME_REGEX).unwrap();
+            re.captures(&self.alias)
+                .ok_or("Invalid alias".to_string())?;
+            Ok(())
+        }
     }
 }

@@ -97,20 +97,21 @@ fn untrace(
             let mut community =
                 crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
             let agent_addr = community.agent_pubkey.to_string();
-            let r = solana::on_checking_transfer(&agent_addr, response).map_err(|e| e.to_string());
-            if let Ok(_received) = r {
-                // TODO
+            let received = solana::on_checking_transfer(&agent_addr, response)
+                .map_err(|e| e.to_string())
+                .inspect_err(|e| eprintln!("failed to resolve solana RPC response, {:?}", e))?;
+            if received >= crate::MIN_ACTIVATE_FEE {
+                community.status = CommunityStatus::Active;
+                crate::save(&key, &community)?;
+                // TODO move this to after token issued
+                storage::put(
+                    &crate::trie::to_balance_key(community_id, community.agent_pubkey),
+                    community.token_info.total_issuance.encode(),
+                )
+                .map_err(|e| e.to_string())?;
+                crate::agent::init_agent(&community)?;
+                crate::save_event(Event::CommunityUpdated(community.id()))?;
             }
-            community.status = CommunityStatus::Active;
-            crate::save(&key, &community)?;
-            // TODO move this to after token issued
-            storage::put(
-                &crate::trie::to_balance_key(community_id, community.agent_pubkey),
-                community.token_info.total_issuance.encode(),
-            )
-            .map_err(|e| e.to_string())?;
-            crate::agent::init_agent(&community)?;
-            crate::save_event(Event::CommunityUpdated(community.id()))?;
         }
         HttpCallType::CreatingAgent(community_id) => {
             let assistant_id = openai::resolve_assistant_id(response)?;

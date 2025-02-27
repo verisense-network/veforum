@@ -11,7 +11,9 @@ pub fn set_llm_key(key: String) -> Result<(), String> {
 
 #[post]
 pub fn create_community(args: Args<CreateCommunityArg>) -> Result<CommunityId, String> {
-    args.ensure_signed()?;
+    let nonce = crate::get_nonce(args.signer)?;
+    args.ensure_signed(nonce)?;
+    crate::incr_nonce(args.signer)?;
     let Args {
         signature: _signature,
         signer,
@@ -62,7 +64,7 @@ pub fn create_community(args: Args<CreateCommunityArg>) -> Result<CommunityId, S
         llm_vendor,
         llm_assistant_id: Default::default(),
         agent_pubkey: AccountId(pubkey),
-        status: CommunityStatus::WaitingTx(500_000_000),
+        status: CommunityStatus::WaitingTx(crate::MIN_ACTIVATE_FEE),
         created_time: timer::now() as i64,
     };
     crate::save(&key, &community)?;
@@ -82,7 +84,9 @@ pub fn activate_community(arg: ActivateCommunityArg) -> Result<(), String> {
 
 #[post]
 pub fn post_thread(args: Args<PostThreadArg>) -> Result<ContentId, String> {
-    args.ensure_signed()?;
+    let nonce = crate::get_nonce(args.signer)?;
+    args.ensure_signed(nonce)?;
+    crate::incr_nonce(args.signer)?;
     let Args {
         signature: _signature,
         signer,
@@ -124,7 +128,9 @@ pub fn post_thread(args: Args<PostThreadArg>) -> Result<ContentId, String> {
 
 #[post]
 pub fn post_comment(args: Args<PostCommentArg>) -> Result<ContentId, String> {
-    args.ensure_signed()?;
+    let nonce = crate::get_nonce(args.signer)?;
+    args.ensure_signed(nonce)?;
+    crate::incr_nonce(args.signer)?;
     let Args {
         signature: _signature,
         signer,
@@ -224,17 +230,43 @@ pub fn get_events(id: EventId, limit: u32) -> Result<Vec<(EventId, Event)>, Stri
     Ok(r)
 }
 
-#[get]
-pub fn get_account_info(account_id: AccountId) -> Result<Option<Account>, String> {
-    let key = trie::to_account_key(account_id);
-    match crate::find::<AccountData>(&key)? {
-        Some(AccountData::Pubkey(data)) => Ok(Some(data)),
-        Some(AccountData::AliasOf(id)) => {
-            let key = trie::to_account_key(id);
-            crate::find::<Account>(&key)
-        }
-        None => Ok(None),
+#[post]
+pub fn set_alias(args: Args<SetAliasArg>) -> Result<(), String> {
+    let nonce = crate::get_nonce(args.signer)?;
+    args.ensure_signed(nonce)?;
+    crate::incr_nonce(args.signer)?;
+    args.payload.validate()?;
+    let alias = crate::into_account_id(&args.payload.alias);
+    let alias_key = trie::to_account_key(alias);
+    crate::find::<AccountData>(&alias_key)?
+        .is_none()
+        .then(|| ())
+        .ok_or("Account already exists".to_string())?;
+    let mut account = crate::get_account_info(args.signer)?;
+    if account.alias.is_some() {
+        let prev_alias = crate::into_account_id(&account.alias.take().unwrap());
+        let prev_alias_key = trie::to_account_key(prev_alias);
+        storage::del(&prev_alias_key).map_err(|e| e.to_string())?;
     }
+    account.alias = Some(args.payload.alias.clone());
+    let account_key = trie::to_account_key(args.signer);
+    crate::save(&account_key, &AccountData::Pubkey(account))?;
+    crate::save(&alias_key, &AccountData::AliasOf(args.signer))?;
+    Ok(())
+}
+
+#[get]
+pub fn get_account_info(account_id: AccountId) -> Result<Account, String> {
+    crate::get_account_info(account_id)
+}
+
+#[get]
+pub fn get_accounts(account_ids: Vec<AccountId>) -> Result<Vec<Account>, String> {
+    let mut r = vec![];
+    for account_id in account_ids {
+        r.push(crate::get_account_info(account_id)?);
+    }
+    Ok(r)
 }
 
 #[get]
