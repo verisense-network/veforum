@@ -19,3 +19,4 @@ std = [
     "vrs-core-sdk/std",
     "ed25519-dalek/std",
 ]
+default = ["std"]

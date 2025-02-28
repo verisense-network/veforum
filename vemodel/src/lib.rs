@@ -285,7 +285,7 @@ pub mod args {
     pub trait Verifiable<T: Encode> {
         fn ensure_signed(&self, nonce: u64) -> Result<(), String>;
 
-        fn prehash(&self) -> [u8; 32];
+        fn payload(&self) -> Vec<u8>;
     }
 
     impl<T: Encode> Verifiable<T> for Args<T> {
@@ -293,7 +293,7 @@ pub mod args {
             (self.nonce == nonce)
                 .then(|| ())
                 .ok_or("invalid nonce".to_string())?;
-            let prehash = self.prehash();
+            let prehash = self.payload();
             let pubkey = VerifyingKey::from_bytes(&self.signer.0).map_err(|_| "invalid pubkey")?;
             let signature = Ed25519Signature::from_bytes(&self.signature.0);
             pubkey
@@ -302,11 +302,13 @@ pub mod args {
             Ok(())
         }
 
-        fn prehash(&self) -> [u8; 32] {
+        fn payload(&self) -> Vec<u8> {
             let mut hasher = Sha256::new();
             hasher.update(self.nonce.encode().as_slice());
             hasher.update(self.payload.encode().as_slice());
-            hasher.finalize().into()
+            format!("0x{}", hex::encode(hasher.finalize()))
+                .as_bytes()
+                .to_vec()
         }
     }
 
@@ -391,5 +393,19 @@ pub mod args {
                 .ok_or("Invalid alias".to_string())?;
             Ok(())
         }
+    }
+
+    #[test]
+    pub fn test() {
+        let args = SetAliasArg {
+            alias: "hello_world".to_string(),
+        };
+        let args = Args {
+            signature: Signature([0u8; 64]),
+            signer: AccountId([0u8; 32]),
+            nonce: 0,
+            payload: args,
+        };
+        assert!(args.ensure_signed(0).is_ok());
     }
 }
