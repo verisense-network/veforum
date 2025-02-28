@@ -397,12 +397,15 @@ pub mod args {
 
     #[test]
     pub fn test() {
+        use std::str::FromStr;
         let args = SetAliasArg {
             alias: "hello_world".to_string(),
         };
+        let signer = AccountId::from_str("BQMWc8jsCxDaU9FrWWJ8LU78SGedJhFJuuSVeFiBk2Lc").unwrap();
+        let signature: [u8; 64] = hex::decode("").unwrap().try_into().unwrap();
         let args = Args {
-            signature: Signature([0u8; 64]),
-            signer: AccountId([0u8; 32]),
+            signature: Signature(signature),
+            signer,
             nonce: 0,
             payload: args,
         };
