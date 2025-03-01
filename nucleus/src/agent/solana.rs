@@ -11,7 +11,7 @@ pub(crate) fn initiate_checking_transfer(tx_hash: &str) -> Result<u64, String> {
         "jsonrpc": "2.0",
         "id": 1,
         "method": "getTransaction",
-        "params": [tx_hash, "json"]
+        "params": [tx_hash, {"encoding": "json", "maxSupportedTransactionVersion":0}]
     });
 
     let response = http::request(HttpRequest {
