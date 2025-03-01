@@ -34,21 +34,20 @@ pub(crate) fn on_checking_transfer(
 ) -> Result<u64, Box<dyn std::error::Error>> {
     let response = response.map_err(|e| e.to_string())?;
     let v: serde_json::Value = serde_json::from_slice(&response.body)
-        .map_err(|e| format!("unable to deserialize body from llm: {:?}", e))?;
+        .map_err(|e| format!("unable to deserialize body from solana rpc: {:?}", e))?;
     let result = v.get("result").ok_or("Missing 'result'")?;
     let meta = result.get("meta").ok_or("Missing 'meta'")?;
     let err = meta.get("err");
-
-    if err.is_some() {
-        return Err("solana RPC error".into());
-    }
+    err.map(|e| e.is_null())
+        .unwrap_or(true)
+        .then(|| ())
+        .ok_or("Non-null 'err'")?;
 
     let transaction = result.get("transaction").ok_or("Missing 'transaction'")?;
     let message = transaction.get("message").ok_or("Missing 'message'")?;
     let account_keys = message.get("accountKeys").ok_or("Missing 'accountKeys'")?;
     let post_balances = meta.get("postBalances").ok_or("Missing 'postBalances'")?;
     let pre_balances = meta.get("preBalances").ok_or("Missing 'preBalances'")?;
-
     let index = account_keys
         .as_array()
         .and_then(|keys| keys.iter().position(|k| k.as_str() == Some(&target_addr)))

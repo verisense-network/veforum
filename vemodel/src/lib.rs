@@ -1,5 +1,3 @@
-use std::u128;
-
 use borsh::{BorshDeserialize, BorshSerialize};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
@@ -285,7 +283,7 @@ pub mod args {
     pub trait Verifiable<T: Encode> {
         fn ensure_signed(&self, nonce: u64) -> Result<(), String>;
 
-        fn payload(&self) -> Vec<u8>;
+        fn to_be_signed(&self) -> Vec<u8>;
     }
 
     impl<T: Encode> Verifiable<T> for Args<T> {
@@ -293,16 +291,15 @@ pub mod args {
             (self.nonce == nonce)
                 .then(|| ())
                 .ok_or("invalid nonce".to_string())?;
-            let prehash = self.payload();
             let pubkey = VerifyingKey::from_bytes(&self.signer.0).map_err(|_| "invalid pubkey")?;
             let signature = Ed25519Signature::from_bytes(&self.signature.0);
             pubkey
-                .verify(&prehash, &signature)
+                .verify(&self.to_be_signed().as_ref(), &signature)
                 .map_err(|_| "invalid signature")?;
             Ok(())
         }
 
-        fn payload(&self) -> Vec<u8> {
+        fn to_be_signed(&self) -> Vec<u8> {
             let nonce_encoded = self.nonce.encode();
             let payload_encoded = self.payload.encode();
 

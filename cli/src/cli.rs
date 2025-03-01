@@ -37,12 +37,7 @@ pub struct Options {
     #[arg(long, global = true, help = "The vrx home path, default to \"~/.vrx\"")]
     pub vrx_dir: Option<std::path::PathBuf>,
 
-    #[arg(
-        short,
-        long,
-        global = true,
-        help = "The private key file to use, default \"~/.vrx/default_key\""
-    )]
+    #[arg(short, long, global = true, help = "The private key to use")]
     pub key: Option<String>,
 
     #[arg(long, help = "The nucleus to request")]
@@ -73,11 +68,25 @@ impl Options {
             Err(_) => Err("Invalid nucleus address".to_string()),
         }
     }
+
+    pub(crate) fn get_signer(&self) -> Result<ed25519_dalek::SigningKey, String> {
+        self.key
+            .as_ref()
+            .ok_or("Please specify the private key".to_string())
+            .and_then(|key| {
+                let key = hex::decode(key.trim_start_matches("0x")).map_err(|e| e.to_string())?;
+                let key: [u8; 32] = key
+                    .try_into()
+                    .map_err(|_| "invalid key: 32 bytes expected".to_string())?;
+                Ok(ed25519_dalek::SigningKey::from_bytes(&key))
+            })
+    }
 }
 
 #[derive(Debug, Subcommand)]
 pub enum SubCmd {
     CreateCommunity(CommunityCommand),
+    ActivateCommunity(ActivateCommand),
     PostThread(ThreadCommand),
     PostComment(CommentCommand),
     GetCommunity(GetCommunityCommand),
@@ -92,6 +101,16 @@ pub enum SubCmd {
 pub struct GetCommunityCommand {
     #[arg(help = "The community id")]
     pub id: CommunityId,
+}
+
+#[derive(Debug, Parser)]
+#[command(about = "Activate a community")]
+pub struct ActivateCommand {
+    #[arg(long, help = "The community name")]
+    pub community: String,
+
+    #[arg(long, help = "The solana tx")]
+    pub tx: String,
 }
 
 #[derive(Debug, Parser)]
@@ -150,6 +169,15 @@ impl Into<vemodel::args::CreateCommunityArg> for CommunityCommand {
             llm_name: "OpenAI".to_string(),
             llm_api_host: None,
             llm_key: None,
+        }
+    }
+}
+
+impl Into<vemodel::args::ActivateCommunityArg> for ActivateCommand {
+    fn into(self) -> vemodel::args::ActivateCommunityArg {
+        vemodel::args::ActivateCommunityArg {
+            community: self.community,
+            tx: self.tx,
         }
     }
 }
