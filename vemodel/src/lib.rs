@@ -303,12 +303,16 @@ pub mod args {
         }
 
         fn payload(&self) -> Vec<u8> {
-            let mut hasher = Sha256::new();
-            hasher.update(self.nonce.encode().as_slice());
-            hasher.update(self.payload.encode().as_slice());
-            format!("0x{}", hex::encode(hasher.finalize()))
-                .as_bytes()
-                .to_vec()
+            let nonce_encoded = self.nonce.encode();
+            let payload_encoded = self.payload.encode();
+
+            let mut message_buf = Vec::with_capacity(nonce_encoded.len() + payload_encoded.len());
+            message_buf.extend_from_slice(&nonce_encoded);
+            message_buf.extend_from_slice(&payload_encoded);
+
+            let message = hex::encode(&message_buf);
+
+            message.as_bytes().to_vec()
         }
     }
 
@@ -402,7 +406,7 @@ pub mod args {
             alias: "hello_world".to_string(),
         };
         let signer = AccountId::from_str("BQMWc8jsCxDaU9FrWWJ8LU78SGedJhFJuuSVeFiBk2Lc").unwrap();
-        let signature: [u8; 64] = hex::decode("").unwrap().try_into().unwrap();
+        let signature: [u8; 64] = hex::decode("ff198d2dff9c977f69578ca348f229d020157f0d789046960c26f82f3865536f7ad86b3fabf07981fe0603b917490d23f66afff6d553f0473122ba530b00ea03").unwrap().try_into().unwrap();
         let args = Args {
             signature: Signature(signature),
             signer,
