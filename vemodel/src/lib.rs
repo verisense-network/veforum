@@ -39,6 +39,7 @@ pub enum Event {
 pub enum CommunityStatus {
     PendingCreation,
     WaitingTx(u64),
+    CreateFailed(String),
     Active,
     Frozen(u64),
 }
