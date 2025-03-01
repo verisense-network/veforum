@@ -17,7 +17,8 @@ pub(crate) fn initiate_checking_transfer(tx_hash: &str) -> Result<u64, String> {
     let response = http::request(HttpRequest {
         head: RequestHead {
             method: HttpMethod::Post,
-            uri: "https://api.mainnet-beta.solana.com".to_string(),
+            uri: "https://mainnet.helius-rpc.com/?api-key=64dbe6d2-9641-43c6-bb86-0e3d748f31b1"
+                .to_string(),
             headers,
         },
         body: serde_json::to_vec(&body).expect("json;qed"),
