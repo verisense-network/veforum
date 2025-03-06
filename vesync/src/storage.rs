@@ -1,7 +1,7 @@
 use meilisearch_sdk::{client::Client, settings::Settings};
 use parity_scale_codec::Encode;
-use rocksdb::{Options, WriteBatchWithTransaction, DB};
 use reqwest;
+use rocksdb::{Options, WriteBatchWithTransaction, DB};
 use vemodel::*;
 
 const EVENT_PREFIX: u128 = 0xffffffff_ffffffff_00000000_00000000;
@@ -53,7 +53,9 @@ pub fn exists(db: &DB, id: impl AsRef<[u8]>) -> bool {
     db.key_may_exist(id)
 }
 
-async fn enable_experimental_features(meilisearch_url: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn enable_experimental_features(
+    meilisearch_url: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     let meili_master_key = std::env::var("MEILI_MASTER_KEY").expect("MEILI_MASTER_KEY must be set");
     let client = reqwest::Client::new();
 
@@ -78,7 +80,6 @@ async fn enable_experimental_features(meilisearch_url: &str) -> Result<(), Box<d
     Ok(())
 }
 
-
 pub async fn set_settings(client: &Client) {
     loop {
         match client.health().await {
@@ -97,18 +98,26 @@ pub async fn set_settings(client: &Client) {
         // Wait a bit before retrying
         tokio::time::sleep(tokio::time::Duration::from_secs(5)).await;
     }
-    let settings = Settings::default()
-        .with_filterable_attributes(["id"])
-        .with_sortable_attributes(["created_time"]);
 
     let community = client.index("community");
-    community.set_settings(&settings).await.unwrap();
+    let community_settings = Settings::default()
+        .with_filterable_attributes(["id", "creator"])
+        .with_sortable_attributes(["created_time"]);
+    community.set_settings(&community_settings).await.unwrap();
 
     let thread = client.index("thread");
-    thread.set_settings(&settings).await.unwrap();
+    let thread_settings = Settings::default()
+        .with_filterable_attributes(["id", "author"])
+        .with_sortable_attributes(["created_time"]);
+    thread.set_settings(&thread_settings).await.unwrap();
 
     let comment = client.index("comment");
-    comment.set_settings(&settings).await.unwrap();
+    let comment_settings = Settings::default()
+        .with_filterable_attributes(["id", "author"])
+        .with_sortable_attributes(["created_time"]);
+    comment.set_settings(&comment_settings).await.unwrap();
 
-    enable_experimental_features(client.get_host()).await.unwrap();
+    enable_experimental_features(client.get_host())
+        .await
+        .unwrap();
 }
