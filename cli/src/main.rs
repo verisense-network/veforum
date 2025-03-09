@@ -1,6 +1,6 @@
 mod cli;
 
-use ed25519_dalek::{Signer, SigningKey};
+// use ed25519_dalek::{Signer, SigningKey};
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
 use jsonrpsee::{core::client::ClientT, rpc_params};
 use parity_scale_codec::{Decode, Encode};

@@ -9,7 +9,7 @@ use vrs_core_sdk::{
     storage,
 };
 
-pub const MIN_ACTIVATE_FEE: u64 = 5_000_000;
+pub const MIN_ACTIVATE_FEE: u128 = 5_000_000_000_000_000;
 
 pub(crate) fn from_llm_settings(
     llm_name: String,
@@ -184,8 +184,41 @@ pub(crate) fn balance_of(community_id: CommunityId, account_id: AccountId) -> Re
 }
 
 pub(crate) fn into_account_id(alias: &str) -> AccountId {
-    let mut hasher = Sha256::new();
-    hasher.update(alias.as_bytes());
-    let v = hasher.finalize();
-    AccountId(v.into())
+    AccountId::from_arbitrary(alias.as_bytes())
+}
+
+pub(crate) fn decompress(data: &[u8]) -> Result<String, String> {
+    use std::io::Read;
+    let mut decoder = flate2::read::GzDecoder::new(data);
+    let mut s = String::new();
+    decoder
+        .read_to_string(&mut s)
+        .map_err(|e| format!("Invalid compressed data: {:?}", e))?;
+    Ok(s)
+}
+
+pub(crate) fn compress(data: &str) -> Result<Vec<u8>, String> {
+    use std::io::Write;
+    let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    encoder
+        .write_all(data.as_bytes())
+        .map_err(|e| format!("Invalid data: {:?}", e))?;
+    encoder
+        .finish()
+        .map_err(|e| format!("Invalid compressed data: {:?}", e))
+}
+
+pub(crate) fn validate_write_permission(
+    community_id: CommunityId,
+    account_id: AccountId,
+) -> Result<(), String> {
+    let key = trie::to_permission_key(community_id, account_id);
+    let permission = storage::get(&key).map_err(|e| e.to_string())?;
+    let permission = permission
+        .map(|d| u32::decode(&mut &d[..]).map_err(|e| e.to_string()))
+        .transpose()?
+        .unwrap_or(0);
+    (permission == 0)
+        .then(|| ())
+        .ok_or("You don't have permission to post in this community".to_string())
 }

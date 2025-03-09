@@ -9,13 +9,12 @@ serde = { workspace = true }
 vrs-core-sdk = { workspace = true }
 sha2 = { version = "0.10", default-features = false }
 hex = "0.4"
-borsh = { version = "1.5.5", features = ["derive"] }
-bs58 = "0.5.1"
-ed25519-dalek = { version = "2.1.1", default-features = false }
 regex = "1.11"
+secp256k1 = { version = "0.30", default-features = false, features = ["recovery", "alloc"], optional = true }
+tiny-keccak = { version = "2.0", features = ["keccak"], optional = true }
 
 [features]
-std = [
-    "vrs-core-sdk/std",
-    "ed25519-dalek/std",
-]
+default = ["crypto"]
+std = ["vrs-core-sdk/std"]
+wasm-bind = []
+crypto = ["secp256k1", "tiny-keccak"]

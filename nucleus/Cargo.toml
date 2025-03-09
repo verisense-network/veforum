@@ -10,8 +10,9 @@ crate-type = ["cdylib"]
 parity-scale-codec = { workspace = true }
 serde = { workspace = true }
 vrs-core-sdk = { workspace = true }
-vemodel = { path = "../vemodel" }
+vemodel = { path = "../vemodel", features = ["crypto"], default-features = false }
 sha2 = { version = "0.10", default-features = false }
 regex = "1.11.1"
 serde_json = "1"
 hex = "0.4"
+flate2 = "1.0"

@@ -151,12 +151,10 @@ use std::io::prelude::*;
 
 impl Into<vemodel::args::CreateCommunityArg> for CommunityCommand {
     fn into(self) -> vemodel::args::CreateCommunityArg {
-        // let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-        // encoder.write_all(self.description.as_bytes()).unwrap();
-        // let stream = encoder.finish().unwrap();
         vemodel::args::CreateCommunityArg {
             name: self.name,
             logo: Default::default(),
+            private: false,
             slug: self.slug,
             token: vemodel::args::TokenMetadataArg {
                 symbol: self.token_name,
@@ -195,14 +193,14 @@ pub struct ThreadCommand {
 
 impl Into<vemodel::args::PostThreadArg> for ThreadCommand {
     fn into(self) -> vemodel::args::PostThreadArg {
-        // let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-        // encoder.write_all(self.content.as_bytes()).unwrap();
-        // let stream = encoder.finish().unwrap();
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(self.content.as_bytes()).unwrap();
+        let stream = encoder.finish().unwrap();
         vemodel::args::PostThreadArg {
             community: self.community,
             title: self.title,
-            content: self.content,
-            image: None,
+            content: stream,
+            images: vec![],
             mention: vec![],
         }
     }
@@ -219,13 +217,13 @@ pub struct CommentCommand {
 
 impl Into<vemodel::args::PostCommentArg> for CommentCommand {
     fn into(self) -> vemodel::args::PostCommentArg {
-        // let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-        // encoder.write_all(self.content.as_bytes()).unwrap();
-        // let stream = encoder.finish().unwrap();
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(self.content.as_bytes()).unwrap();
+        let stream = encoder.finish().unwrap();
         vemodel::args::PostCommentArg {
             thread: self.thread.parse().expect("invalid thread id"),
             content: self.content,
-            image: None,
+            images: vec![],
             mention: vec![],
             reply_to: None,
         }

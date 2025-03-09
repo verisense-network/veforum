@@ -108,12 +108,14 @@ pub async fn set_settings(client: &Client) {
     let thread = client.index("thread");
     let thread_settings = Settings::default()
         .with_filterable_attributes(["id", "author"])
-        .with_sortable_attributes(["created_time"]);
+        .with_sortable_attributes(["created_time"])
+        .with_searchable_attributes(["id", "author", "title"]);
     thread.set_settings(&thread_settings).await.unwrap();
 
     let comment = client.index("comment");
     let comment_settings = Settings::default()
         .with_filterable_attributes(["id", "author"])
+        .with_searchable_attributes(["id", "author"])
         .with_sortable_attributes(["created_time"]);
     comment.set_settings(&comment_settings).await.unwrap();
 

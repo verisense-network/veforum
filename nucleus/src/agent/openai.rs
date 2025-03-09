@@ -82,11 +82,20 @@ pub(crate) fn create_thread_and_run(
     key: &str,
     assistant_id: &str,
     thread: &Thread,
+    text: &str,
 ) -> Result<u64, String> {
     let mut headers = BTreeMap::new();
     headers.insert("Content-Type".to_string(), "application/json".to_string());
     headers.insert("OpenAI-Beta".to_string(), "assistants=v2".to_string());
     headers.insert("Authorization".to_string(), format!("Bearer {}", key));
+    let text_msg = serde_json::json!({
+        "id": thread.id,
+        "title": thread.title,
+        "content": text,
+        "author": thread.author,
+        "mention": thread.mention,
+        "created_time": thread.created_time,
+    });
     let mut body = serde_json::json!({
         "assistant_id": assistant_id,
         "thread": {
@@ -94,19 +103,19 @@ pub(crate) fn create_thread_and_run(
                 "role": "user",
                 "content": [{
                     "type": "text",
-                    "text": serde_json::to_string(&thread).expect("json;qed")
+                    "text": serde_json::to_string(&text_msg).expect("json;qed")
                 }],
             }]
         }
     });
-    if let Some(ref img) = thread.image {
-        body["thread"]["messages"][0]["content"]
-            .as_array_mut()
-            .unwrap()
-            .push(serde_json::json!({
-                "type": "image_url",
-                "image_url": { "url": img },
-            }));
+    let contents = body["thread"]["messages"][0]["content"]
+        .as_array_mut()
+        .unwrap();
+    for img in thread.images.iter() {
+        contents.push(serde_json::json!({
+            "type": "image_url",
+            "image_url": { "url": img },
+        }));
     }
     let response = http::request(HttpRequest {
         head: RequestHead {
@@ -202,26 +211,34 @@ pub(crate) fn append_message(
     key: &str,
     session_id: &str,
     comment: &Comment,
+    text: &str,
 ) -> Result<u64, String> {
     let mut headers = BTreeMap::new();
     headers.insert("Content-Type".to_string(), "application/json".to_string());
     headers.insert("OpenAI-Beta".to_string(), "assistants=v2".to_string());
     headers.insert("Authorization".to_string(), format!("Bearer {}", key));
+    let text_msg = serde_json::json!({
+        "id": comment.id,
+        "content": text,
+        "author": comment.author,
+        "mention": comment.mention,
+        "created_time": comment.created_time,
+    });
     let mut body = serde_json::json!({
         "role": "user",
         "content": [{
             "type": "text",
-            "text": serde_json::to_string(&comment).expect("json;qed")
+            "text": serde_json::to_string(&text_msg).expect("json;qed")
         }],
     });
-    if let Some(ref img) = comment.image {
-        body["content"]
-            .as_array_mut()
-            .unwrap()
-            .push(serde_json::json!({
-                "type": "image_url",
-                "image_url": { "url": img },
-            }));
+    let contents = body["thread"]["messages"][0]["content"]
+        .as_array_mut()
+        .unwrap();
+    for img in comment.images.iter() {
+        contents.push(serde_json::json!({
+            "type": "image_url",
+            "image_url": { "url": img },
+        }));
     }
     let response = http::request(HttpRequest {
         head: RequestHead {

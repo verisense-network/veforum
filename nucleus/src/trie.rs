@@ -13,7 +13,8 @@ pub const MIN_CONTENT_KEY: u128 = 0x00000002_00000000_00000000_00000000;
 pub const MAX_CONTENT_KEY: u128 = 0x00000002_ffffffff_ffffffff_ffffffff;
 
 pub const ACCOUNT_KEY_PREFIX: u64 = 0x00000003_00000000;
-pub const BALANCE_KEY_PREFIX: u32 = 0x00000004;
+pub const BALANCE_KEY_PREFIX: u64 = 0x00000004_00000000;
+pub const PERMISSION_KEY_PREFIX: u64 = 0x00000005_00000000;
 
 pub const HTTP_MASK: u128 = 0x0000000f_00000000_00000000_00000000;
 pub const KEY_STORE: u64 = 0x00000010_00000000;
@@ -67,15 +68,31 @@ pub fn llm_key(vendor: [u8; 4]) -> [u8; 8] {
     (u32::from_be_bytes(vendor) as u64 | KEY_STORE).to_be_bytes()
 }
 
-pub fn to_account_key(account_id: AccountId) -> Vec<u8> {
-    [&ACCOUNT_KEY_PREFIX.to_be_bytes()[..], &account_id.0[..]].concat()
+pub fn to_account_key(account_id: AccountId) -> [u8; 28] {
+    [&ACCOUNT_KEY_PREFIX.to_be_bytes()[..], &account_id.0[..]]
+        .concat()
+        .try_into()
+        .unwrap()
 }
 
-pub fn to_balance_key(community_id: CommunityId, account_id: AccountId) -> Vec<u8> {
+pub fn to_balance_key(community_id: CommunityId, account_id: AccountId) -> [u8; 32] {
     [
         &BALANCE_KEY_PREFIX.to_be_bytes()[..],
         &account_id.0[..],
         &community_id.to_be_bytes()[..],
     ]
     .concat()
+    .try_into()
+    .unwrap()
+}
+
+pub fn to_permission_key(community_id: CommunityId, account_id: AccountId) -> [u8; 32] {
+    [
+        &PERMISSION_KEY_PREFIX.to_be_bytes()[..],
+        &account_id.0[..],
+        &community_id.to_be_bytes()[..],
+    ]
+    .concat()
+    .try_into()
+    .unwrap()
 }

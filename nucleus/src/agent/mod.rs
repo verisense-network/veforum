@@ -1,5 +1,6 @@
+pub(crate) mod bsc;
 pub(crate) mod openai;
-pub(crate) mod solana;
+// pub(crate) mod solana;
 
 use std::str::FromStr;
 
@@ -31,7 +32,7 @@ pub(crate) fn get_sys_key(vendor: [u8; 4]) -> Result<String, String> {
 
 fn decorate_prompt(community: &str, account: &AccountId, prompt: &str) -> String {
     format!(
-        "你是一名论坛{}版块的管理员，论坛程序将会把每篇帖子或者at你的评论以json格式发送给你。其中，author和mention的数据类型为user_id，使用base58编码，你自己的user_id={}。你需要阅读这些内容，并且根据本版块的规则进行响应，本版块的规则如下：\n{}",
+        "你是一名论坛{}版块的管理员，论坛程序将会把每篇帖子或者at你的评论以json格式发送给你。其中，author和mention的数据类型为user_id，你自己的user_id={}。你需要阅读这些内容，并且根据本版块的规则进行响应，本版块的规则如下：\n{}",
         community,
         account,
         prompt
@@ -97,12 +98,12 @@ fn untrace(
             let mut community =
                 crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
             let agent_addr = community.agent_pubkey.to_string();
-            match solana::on_checking_transfer(&agent_addr, response)
+            match bsc::on_checking_bnb_transfer(&agent_addr, response)
                 .map_err(|e| e.to_string())
                 .inspect_err(|e| eprintln!("failed to resolve solana RPC response, {:?}", e))
             {
-                Ok(received) => {
-                    if received >= crate::MIN_ACTIVATE_FEE {
+                Ok(Some(tx)) => {
+                    if tx.amount_received >= crate::MIN_ACTIVATE_FEE {
                         // TODO move this to after token issued
                         storage::put(
                             &crate::trie::to_balance_key(community_id, community.agent_pubkey),
@@ -117,9 +118,13 @@ fn untrace(
                         );
                     }
                 }
+                Ok(None) => {
+                    community.status =
+                        CommunityStatus::CreateFailed("No transfer found".to_string());
+                }
                 Err(_) => {
                     community.status = CommunityStatus::CreateFailed(
-                        "Failed to resolve the tx from Solana RPC".to_string(),
+                        "Failed to resolve the tx from BSC RPC".to_string(),
                     );
                 }
             }
@@ -237,8 +242,8 @@ fn untrace(
                     crate::trie::is_comment(content_id).then(|| hex::encode(content_id.encode()));
                 let comment = Comment {
                     id: hex::encode(id.encode()),
-                    content,
-                    image: None,
+                    content: crate::compress(content.as_ref())?,
+                    images: vec![],
                     author: community.agent_pubkey,
                     mention: vec![],
                     reply_to,
@@ -271,14 +276,16 @@ pub(crate) fn init_agent(community: &Community) -> Result<(), String> {
     trace(id, HttpCallType::CreatingAgent(community.id())).map_err(|e| e.to_string())
 }
 
-pub(crate) fn create_session_and_run(thread: &Thread) -> Result<(), String> {
-    let community_id = thread.community_id();
-    let community = crate::find::<Community>(&crate::trie::to_community_key(community_id))?
-        .ok_or("Community not found".to_string())?;
+pub(crate) fn create_session_and_run(
+    community: &Community,
+    thread: &Thread,
+    text: &str,
+) -> Result<(), String> {
     let id = openai::create_thread_and_run(
         community.llm_vendor.key(),
         &community.llm_assistant_id,
         thread,
+        text,
     )?;
     trace(id, HttpCallType::InvokingLLM(thread.id())).map_err(|e| e.to_string())
 }
@@ -303,13 +310,18 @@ fn run(content_id: ContentId) -> Result<(), String> {
     trace(id, HttpCallType::InvokingLLM(content_id)).map_err(|e| e.to_string())
 }
 
-pub(crate) fn append_message_then_run(comment: &Comment) -> Result<(), String> {
-    let thread_key = crate::trie::to_content_key(comment.thread_id());
-    let thread = crate::find::<Thread>(&thread_key)?.ok_or("Thread not found".to_string())?;
-    let community_key = crate::trie::to_community_key(comment.community_id());
-    let community =
-        crate::find::<Community>(&community_key)?.ok_or("Community not found".to_string())?;
-    let id = openai::append_message(community.llm_vendor.key(), &thread.llm_session_id, comment)?;
+pub(crate) fn append_message_then_run(
+    community: &Community,
+    thread: &Thread,
+    comment: &Comment,
+    text: &str,
+) -> Result<(), String> {
+    let id = openai::append_message(
+        community.llm_vendor.key(),
+        &thread.llm_session_id,
+        comment,
+        text,
+    )?;
     trace(id, HttpCallType::AppendingMessage(comment.id())).map_err(|e| e.to_string())
 }
 
@@ -361,7 +373,7 @@ pub(crate) fn check_transfering(community: &Community, tx: String) -> Result<(),
         CommunityStatus::WaitingTx(_)
         | CommunityStatus::Frozen(_)
         | CommunityStatus::CreateFailed(_) => {
-            let id = solana::initiate_checking_transfer(&tx)?;
+            let id = bsc::initiate_checking_bnb_transfer(&tx)?;
             trace(id, HttpCallType::CheckingTx(community.id())).map_err(|e| e.to_string())
         }
     }

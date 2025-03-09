@@ -1,4 +1,3 @@
-use borsh::{BorshDeserialize, BorshSerialize};
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -47,6 +46,7 @@ pub enum CommunityStatus {
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
 pub struct Community {
     pub id: String,
+    pub private: bool,
     pub logo: String,
     pub name: String,
     pub slug: String,
@@ -92,8 +92,8 @@ pub struct Thread {
     pub id: String,
     pub community_name: String,
     pub title: String,
-    pub content: String,
-    pub image: Option<String>,
+    pub content: Vec<u8>,
+    pub images: Vec<String>,
     pub author: AccountId,
     pub mention: Vec<AccountId>,
     pub llm_session_id: String,
@@ -114,8 +114,8 @@ impl Thread {
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
 pub struct Comment {
     pub id: String,
-    pub content: String,
-    pub image: Option<String>,
+    pub content: Vec<u8>,
+    pub images: Vec<String>,
     pub author: AccountId,
     pub mention: Vec<AccountId>,
     pub reply_to: Option<String>,
@@ -138,61 +138,91 @@ impl Comment {
     }
 }
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Decode, Encode, BorshSerialize, BorshDeserialize)]
-pub struct AccountId(pub [u8; 32]);
+pub type AccountId = H160;
 
-pub type Pubkey = AccountId;
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Decode, Encode)]
+pub struct H160(pub [u8; 20]);
 
-const MAX_BASE58_LEN: usize = 44;
+impl H160 {
+    pub fn from_slice(s: &[u8]) -> Result<Self, String> {
+        (s.len() == 20)
+            .then(|| ())
+            .ok_or("invalid account id".to_string())?;
+        let mut res = [0u8; 20];
+        res.copy_from_slice(&s[..20]);
+        Ok(Self(res))
+    }
 
-impl std::str::FromStr for AccountId {
+    #[cfg(feature = "crypto")]
+    pub fn from_uncompressed(raw: &[u8; 64]) -> Self {
+        use tiny_keccak::{Hasher, Keccak};
+        let mut hasher = Keccak::v256();
+        let mut digest = [0u8; 32];
+        hasher.update(raw);
+        hasher.finalize(&mut digest);
+        let mut res = [0u8; 20];
+        res.copy_from_slice(&digest[12..]);
+        Self(res)
+    }
+
+    #[cfg(feature = "crypto")]
+    pub fn from_arbitrary(v: &[u8]) -> Self {
+        use tiny_keccak::{Hasher, Keccak};
+        let mut hasher = Keccak::v256();
+        let mut digest = [0u8; 32];
+        hasher.update(v);
+        hasher.finalize(&mut digest);
+        let mut res = [0u8; 20];
+        res.copy_from_slice(&digest[12..]);
+        Self(res)
+    }
+}
+
+impl std::str::FromStr for H160 {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        (s.len() <= MAX_BASE58_LEN)
-            .then(|| ())
-            .ok_or("invalid account id".to_string())?;
-        bs58::decode(s.as_bytes())
-            .into_array_const::<32>()
-            .map(|a| Self(a))
-            .map_err(|_| "invalid account id".to_string())
+        let s: Option<[u8; 20]> = hex::decode(s.trim_start_matches("0x"))
+            .map(|v| v.try_into().ok())
+            .map_err(|e| e.to_string())?;
+        s.map(|v| Self(v)).ok_or("invalid account id".to_string())
     }
 }
 
-impl std::fmt::Display for AccountId {
+impl std::fmt::Display for H160 {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        bs58::encode(&self.encode()).into_string().fmt(f)
+        format!("0x{}", hex::encode(self.0)).fmt(f)
     }
 }
 
-struct AccountIdVisitor;
+struct H160Visitor;
 
-impl<'de> serde::de::Visitor<'de> for AccountIdVisitor {
-    type Value = Pubkey;
+impl<'de> serde::de::Visitor<'de> for H160Visitor {
+    type Value = H160;
 
     fn expecting(&self, formatter: &mut core::fmt::Formatter) -> std::fmt::Result {
-        write!(formatter, "bs58 account")
+        write!(formatter, "h160 with 0x prefix")
     }
 
     fn visit_str<E>(self, value: &str) -> Result<AccountId, E>
     where
         E: serde::de::Error,
     {
-        <AccountId as std::str::FromStr>::from_str(value)
+        <H160 as std::str::FromStr>::from_str(value)
             .map_err(|_| E::invalid_value(serde::de::Unexpected::Str(value), &self))
     }
 }
 
-impl<'de> serde::Deserialize<'de> for AccountId {
+impl<'de> serde::Deserialize<'de> for H160 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: serde::de::Deserializer<'de>,
     {
-        deserializer.deserialize_str(AccountIdVisitor)
+        deserializer.deserialize_str(H160Visitor)
     }
 }
 
-impl serde::Serialize for AccountId {
+impl serde::Serialize for H160 {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::ser::Serializer,
@@ -204,8 +234,9 @@ impl serde::Serialize for AccountId {
 #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
 pub struct Account {
     pub nonce: u64,
-    pub pubkey: Pubkey,
+    pub address: H160,
     pub alias: Option<String>,
+    pub last_post_at: i64,
 }
 
 #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
@@ -214,19 +245,26 @@ pub enum AccountData {
     AliasOf(AccountId),
 }
 
+const POST_COOLING_DOWN: i64 = 180;
+
 impl Account {
-    pub fn new(pubkey: Pubkey) -> Self {
+    pub fn new(address: H160) -> Self {
         Self {
             nonce: 0,
-            pubkey,
+            address,
             alias: None,
+            last_post_at: 0,
         }
     }
 
     pub fn name(&self) -> String {
         self.alias
             .clone()
-            .unwrap_or_else(|| self.pubkey.to_string())
+            .unwrap_or_else(|| self.address.to_string())
+    }
+
+    pub fn allow_post(&self, now: i64) -> bool {
+        self.last_post_at + POST_COOLING_DOWN < now
     }
 }
 
@@ -237,15 +275,6 @@ pub struct TokenMetadata {
     pub decimals: u8,
     pub contract: AccountId,
     pub image: Option<String>,
-}
-
-#[derive(Debug, Clone, Copy, Decode, Encode)]
-pub struct Signature(pub [u8; 64]);
-
-impl std::fmt::Display for Signature {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        hex::encode(&self.encode()).fmt(f)
-    }
 }
 
 #[derive(Debug, Clone, Decode, Encode, Serialize, Deserialize)]
@@ -263,9 +292,91 @@ impl LlmVendor {
     }
 }
 
+#[cfg(feature = "crypto")]
+pub mod crypto {
+    use parity_scale_codec::{Decode, Encode};
+    use secp256k1::{
+        ecdsa::{RecoverableSignature, RecoveryId},
+        Message, Secp256k1,
+    };
+    use tiny_keccak::{Hasher, Keccak};
+
+    /// SECP256k1 ECDSA signature in RSV format, V should be either `0/1` or `27/28`.
+    #[derive(Debug, Clone, Copy, Decode, Encode)]
+    pub struct EcdsaSignature(pub [u8; 65]);
+
+    impl EcdsaSignature {
+        pub fn recover(&self, msg: [u8; 32]) -> Result<[u8; 64], String> {
+            let secp = Secp256k1::verification_only();
+            let rid = if self.0[64] == 27u8 || self.0[64] == 0u8 {
+                RecoveryId::Zero
+            } else if self.0[64] == 28u8 || self.0[64] == 1u8 {
+                RecoveryId::One
+            } else {
+                return Err("Bad V in signature".to_string());
+            };
+            let signature = RecoverableSignature::from_compact(&self.0[..64], rid)
+                .map_err(|_| "Bad RS in signature".to_string())?;
+            let msg = Message::from_digest(msg);
+            let pubkey = secp
+                .recover_ecdsa(&msg, &signature)
+                .map_err(|_| "Bad signature".to_string())?;
+            let mut res = [0u8; 64];
+            res.copy_from_slice(&pubkey.serialize_uncompressed()[1..]);
+            Ok(res)
+        }
+    }
+
+    impl std::fmt::Display for EcdsaSignature {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            hex::encode(&self.encode()).fmt(f)
+        }
+    }
+
+    pub trait EcdsaVerifiable<T: Encode> {
+        fn ensure_signed(&self, nonce: u64) -> Result<(), String>;
+
+        fn to_be_signed(&self) -> Vec<u8>;
+    }
+
+    impl<T: Encode> EcdsaVerifiable<T> for crate::args::Args<T, EcdsaSignature> {
+        fn ensure_signed(&self, nonce: u64) -> Result<(), String> {
+            (self.nonce == nonce)
+                .then(|| ())
+                .ok_or("invalid nonce".to_string())?;
+            let mut keccak = Keccak::v256();
+            keccak.update(&self.to_be_signed());
+            let mut digest = [0u8; 32];
+            keccak.finalize(&mut digest);
+            let raw_pubkey = self.signature.recover(digest)?;
+            let mut keccak = Keccak::v256();
+            keccak.update(&raw_pubkey);
+            let mut digest = [0u8; 32];
+            keccak.finalize(&mut digest);
+            (digest[12..] == self.signer.0)
+                .then(|| ())
+                .ok_or("invalid signature".to_string())?;
+            Ok(())
+        }
+
+        fn to_be_signed(&self) -> Vec<u8> {
+            let encoded_payload = (self.nonce, self.payload.encode()).using_encoded(|v| v.to_vec());
+            [
+                &[0x19u8][..],
+                &format!(
+                    "Ethereum Signed Message:\n{}{}",
+                    encoded_payload.len() * 2,
+                    hex::encode(encoded_payload)
+                )
+                .as_bytes()[..],
+            ]
+            .concat()
+        }
+    }
+}
+
 pub mod args {
     use super::*;
-    use ed25519_dalek::{Signature as Ed25519Signature, Verifier, VerifyingKey};
     use parity_scale_codec::{Decode, Encode};
     use serde::{Deserialize, Serialize};
 
@@ -274,49 +385,17 @@ pub mod args {
     const NAME_REGEX: &'static str = r"^[\p{L}\p{N}_-]{3,30}$";
 
     #[derive(Debug, Clone, Decode, Encode)]
-    pub struct Args<T> {
-        pub signature: Signature,
-        pub signer: Pubkey,
+    pub struct Args<T, S> {
+        pub signature: S,
+        pub signer: AccountId,
         pub nonce: u64,
         pub payload: T,
-    }
-
-    pub trait Verifiable<T: Encode> {
-        fn ensure_signed(&self, nonce: u64) -> Result<(), String>;
-
-        fn to_be_signed(&self) -> Vec<u8>;
-    }
-
-    impl<T: Encode> Verifiable<T> for Args<T> {
-        fn ensure_signed(&self, nonce: u64) -> Result<(), String> {
-            (self.nonce == nonce)
-                .then(|| ())
-                .ok_or("invalid nonce".to_string())?;
-            let pubkey = VerifyingKey::from_bytes(&self.signer.0).map_err(|_| "invalid pubkey")?;
-            let signature = Ed25519Signature::from_bytes(&self.signature.0);
-            pubkey
-                .verify(&self.to_be_signed().as_ref(), &signature)
-                .map_err(|_| "invalid signature")?;
-            Ok(())
-        }
-
-        fn to_be_signed(&self) -> Vec<u8> {
-            let nonce_encoded = self.nonce.encode();
-            let payload_encoded = self.payload.encode();
-
-            let mut message_buf = Vec::with_capacity(nonce_encoded.len() + payload_encoded.len());
-            message_buf.extend_from_slice(&nonce_encoded);
-            message_buf.extend_from_slice(&payload_encoded);
-
-            let message = hex::encode(&message_buf);
-
-            message.as_bytes().to_vec()
-        }
     }
 
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
     pub struct CreateCommunityArg {
         pub name: String,
+        pub private: bool,
         pub logo: String,
         pub token: TokenMetadataArg,
         pub slug: String,
@@ -369,16 +448,16 @@ pub mod args {
     pub struct PostThreadArg {
         pub community: String,
         pub title: String,
-        pub content: String,
-        pub image: Option<String>,
+        pub content: Vec<u8>,
+        pub images: Vec<String>,
         pub mention: Vec<AccountId>,
     }
 
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
     pub struct PostCommentArg {
         pub thread: ContentId,
-        pub content: String,
-        pub image: Option<String>,
+        pub content: Vec<u8>,
+        pub images: Vec<String>,
         pub mention: Vec<AccountId>,
         pub reply_to: Option<ContentId>,
     }
@@ -395,22 +474,5 @@ pub mod args {
                 .ok_or("Invalid alias".to_string())?;
             Ok(())
         }
-    }
-
-    #[test]
-    pub fn test() {
-        use std::str::FromStr;
-        let args = SetAliasArg {
-            alias: "hello_world".to_string(),
-        };
-        let signer = AccountId::from_str("BQMWc8jsCxDaU9FrWWJ8LU78SGedJhFJuuSVeFiBk2Lc").unwrap();
-        let signature: [u8; 64] = hex::decode("ff198d2dff9c977f69578ca348f229d020157f0d789046960c26f82f3865536f7ad86b3fabf07981fe0603b917490d23f66afff6d553f0473122ba530b00ea03").unwrap().try_into().unwrap();
-        let args = Args {
-            signature: Signature(signature),
-            signer,
-            nonce: 0,
-            payload: args,
-        };
-        assert!(args.ensure_signed(0).is_ok());
     }
 }
