@@ -37,7 +37,7 @@ pub enum Event {
 #[derive(Debug, Decode, Encode, Deserialize, Serialize, Eq, PartialEq)]
 pub enum CommunityStatus {
     PendingCreation,
-    WaitingTx(u64),
+    WaitingTx(u128),
     CreateFailed(String),
     Active,
     Frozen(u64),

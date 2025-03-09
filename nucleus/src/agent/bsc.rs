@@ -75,6 +75,7 @@ struct RpcResponse {
 struct ResultData {
     #[serde(rename = "txData")]
     tx_data: TxData,
+    #[allow(unused)]
     receipt: Receipt,
 }
 
