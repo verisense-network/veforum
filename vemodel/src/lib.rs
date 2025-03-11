@@ -344,33 +344,50 @@ pub mod crypto {
             (self.nonce == nonce)
                 .then(|| ())
                 .ok_or("invalid nonce".to_string())?;
+
+            let message = self.to_be_signed();
+
             let mut keccak = Keccak::v256();
-            keccak.update(&self.to_be_signed());
-            let mut digest = [0u8; 32];
-            keccak.finalize(&mut digest);
-            let raw_pubkey = self.signature.recover(digest)?;
+            keccak.update(&message);
+            let mut message_hash = [0u8; 32];
+            keccak.finalize(&mut message_hash);
+
+            let raw_pubkey = self.signature.recover(message_hash)?;
+
+            let pubkey_to_hash = if raw_pubkey.len() == 65 && raw_pubkey[0] == 0x04 {
+                &raw_pubkey[1..]
+            } else {
+                &raw_pubkey
+            };
+
             let mut keccak = Keccak::v256();
-            keccak.update(&raw_pubkey);
-            let mut digest = [0u8; 32];
-            keccak.finalize(&mut digest);
-            (digest[12..] == self.signer.0)
+            keccak.update(pubkey_to_hash);
+            let mut pubkey_hash = [0u8; 32];
+            keccak.finalize(&mut pubkey_hash);
+
+            (pubkey_hash[12..] == self.signer.0)
                 .then(|| ())
-                .ok_or("invalid signature".to_string())?;
+                .ok_or("Invalid signature".to_string())?;
             Ok(())
         }
 
         fn to_be_signed(&self) -> Vec<u8> {
-            let encoded_payload = (self.nonce, self.payload.encode()).using_encoded(|v| v.to_vec());
-            [
-                &[0x19u8][..],
-                &format!(
-                    "Ethereum Signed Message:\n{}{}",
-                    encoded_payload.len() * 2,
-                    hex::encode(encoded_payload)
-                )
-                .as_bytes()[..],
-            ]
-            .concat()
+            let nonce_encoded = self.nonce.encode();
+            let payload_encoded = self.payload.encode();
+
+            let mut message_buf = Vec::with_capacity(nonce_encoded.len() + payload_encoded.len());
+            message_buf.extend_from_slice(&nonce_encoded);
+            message_buf.extend_from_slice(&payload_encoded);
+
+            let hex_message = hex::encode(&message_buf);
+            let prefixed_message = format!(
+                "\x19Ethereum Signed Message:\n{}{}",
+                hex_message.len(),
+                hex_message
+            );
+            let prefixed_message_bytes = prefixed_message.as_bytes().to_vec();
+
+            prefixed_message_bytes
         }
     }
 }
