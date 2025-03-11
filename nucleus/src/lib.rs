@@ -9,7 +9,7 @@ use vrs_core_sdk::{
     storage,
 };
 
-pub const MIN_ACTIVATE_FEE: u128 = 5_000_000_000_000_000;
+pub const MIN_ACTIVATE_FEE: u128 = 2_000_000_000_000_000;
 
 pub(crate) fn from_llm_settings(
     llm_name: String,
