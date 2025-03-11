@@ -154,15 +154,17 @@ impl H160 {
     }
 
     #[cfg(feature = "crypto")]
-    pub fn from_uncompressed(raw: &[u8; 64]) -> Self {
+    pub fn from_compressed(raw: &[u8; 33]) -> Result<Self, String> {
         use tiny_keccak::{Hasher, Keccak};
+        let pubkey =
+            secp256k1::PublicKey::from_byte_array_compressed(raw).map_err(|e| e.to_string())?;
         let mut hasher = Keccak::v256();
         let mut digest = [0u8; 32];
-        hasher.update(raw);
+        hasher.update(&pubkey.serialize_uncompressed()[1..]);
         hasher.finalize(&mut digest);
         let mut res = [0u8; 20];
         res.copy_from_slice(&digest[12..]);
-        Self(res)
+        Ok(Self(res))
     }
 
     #[cfg(feature = "crypto")]

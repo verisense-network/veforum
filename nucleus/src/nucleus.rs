@@ -53,7 +53,7 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
     let key_id = id.to_be_bytes();
     let pubkey =
         tss::tss_get_public_key(tss::CryptoType::Secp256k1, key_id).map_err(|e| e.to_string())?;
-    let pubkey: [u8; 64] = pubkey.try_into().map_err(|_| "TSS key error".to_string())?;
+    let pubkey: [u8; 33] = pubkey.try_into().map_err(|_| "TSS key error".to_string())?;
     let llm_vendor = crate::from_llm_settings(llm_name, llm_api_host, llm_key)?;
     let community = Community {
         id: hex::encode(id.encode()),
@@ -67,7 +67,7 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
         prompt: prompt.clone(),
         llm_vendor,
         llm_assistant_id: Default::default(),
-        agent_pubkey: H160::from_uncompressed(&pubkey),
+        agent_pubkey: H160::from_compressed(&pubkey)?,
         status: CommunityStatus::WaitingTx(crate::MIN_ACTIVATE_FEE),
         created_time: timer::now() as i64,
     };
