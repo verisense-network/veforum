@@ -82,7 +82,9 @@ pub fn activate_community(arg: ActivateCommunityArg) -> Result<(), String> {
     let id = crate::name_to_community_id(&community).ok_or("Invalid name".to_string())?;
     let key = trie::to_community_key(id);
     let community = crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
-    crate::agent::check_transfering(&community, tx)?;
+    // prefix '0x' of the string being encoded by codec, add a space when transmitting, so here use trim
+    let tx_hash = tx.trim().to_string();
+    crate::agent::check_transfering(&community, tx_hash)?;
     Ok(())
 }
 
