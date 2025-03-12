@@ -15,7 +15,7 @@ pub fn set_llm_key(key: String) -> Result<(), String> {
 pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<CommunityId, String> {
     let nonce = crate::get_nonce(args.signer)?;
     args.ensure_signed(nonce)?;
-    crate::incr_nonce(args.signer)?;
+    crate::incr_nonce(args.signer, None)?;
     let Args {
         signature: _signature,
         signer,
@@ -96,7 +96,7 @@ pub fn post_thread(args: SignedArgs<PostThreadArg>) -> Result<ContentId, String>
         .then(|| ())
         .ok_or("You're sending messages too frequently.".to_string())?;
     args.ensure_signed(account.nonce)?;
-    crate::incr_nonce(args.signer)?;
+    crate::incr_nonce(args.signer, Some(timer::now()))?;
     let Args {
         signature: _signature,
         signer,
@@ -148,7 +148,7 @@ pub fn post_comment(args: SignedArgs<PostCommentArg>) -> Result<ContentId, Strin
         .then(|| ())
         .ok_or("You're sending messages too frequently.".to_string())?;
     args.ensure_signed(account.nonce)?;
-    crate::incr_nonce(args.signer)?;
+    crate::incr_nonce(args.signer, Some(timer::now()))?;
     let Args {
         signature: _signature,
         signer,
@@ -256,7 +256,7 @@ pub fn get_events(id: EventId, limit: u32) -> Result<Vec<(EventId, Event)>, Stri
 pub fn set_alias(args: SignedArgs<SetAliasArg>) -> Result<(), String> {
     let nonce = crate::get_nonce(args.signer)?;
     args.ensure_signed(nonce)?;
-    crate::incr_nonce(args.signer)?;
+    crate::incr_nonce(args.signer, None)?;
     args.payload.validate()?;
     let alias = crate::into_account_id(&args.payload.alias);
     let alias_key = trie::to_account_key(alias);

@@ -135,7 +135,7 @@ pub(crate) fn get_nonce(account_id: AccountId) -> Result<u64, String> {
     }
 }
 
-pub(crate) fn incr_nonce(account_id: AccountId) -> Result<(), String> {
+pub(crate) fn incr_nonce(account_id: AccountId, update_time: Option<i32>) -> Result<(), String> {
     let key = trie::to_account_key(account_id);
     let mut account = match crate::find::<AccountData>(&key)? {
         Some(AccountData::Pubkey(data)) => Ok(data),
@@ -143,6 +143,9 @@ pub(crate) fn incr_nonce(account_id: AccountId) -> Result<(), String> {
         None => Ok(Account::new(account_id)),
     }?;
     account.nonce += 1;
+    if let Some(t) = update_time {
+        account.last_post_at = t as i64;
+    }
     storage::put(&key, AccountData::Pubkey(account).encode()).map_err(|e| e.to_string())?;
     Ok(())
 }

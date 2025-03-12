@@ -231,9 +231,7 @@ pub(crate) fn append_message(
             "text": serde_json::to_string(&text_msg).expect("json;qed")
         }],
     });
-    let contents = body["thread"]["messages"][0]["content"]
-        .as_array_mut()
-        .unwrap();
+    let contents = body["content"].as_array_mut().unwrap();
     for img in comment.images.iter() {
         contents.push(serde_json::json!({
             "type": "image_url",
