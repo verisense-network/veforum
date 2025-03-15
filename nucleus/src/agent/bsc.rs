@@ -10,7 +10,7 @@ use ethers_core::types::{Address, U256, U64};
 use ethers_core::types::{Bytes, TransactionRequest};
 use ethers_core::types::transaction::eip2718::TypedTransaction;
 use ethers_signers::{LocalWallet, Signer};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use vrs_core_sdk::{
     CallResult,
     http::{self, HttpMethod, HttpRequest, HttpResponse, RequestHead},
@@ -22,7 +22,7 @@ use crate::agent::{bsc, GASPRICE_STORAGE_KEY, HttpCallType, trace};
 
 pub const BSC_URL: &str = "https://bsc-dataseed.binance.org/";
 
-pub(crate) fn initiate_checking_bnb_transfer(tx_hash: &str) -> Result<u64, String> {
+pub(crate) fn initiate_query_bsc_transaction(tx_hash: &str) -> Result<u64, String> {
     let mut headers = BTreeMap::new();
     headers.insert("Content-Type".to_string(), "application/json".to_string());
     let body = serde_json::json!({
@@ -96,10 +96,25 @@ struct Receipt {
     from: String,
     to: Option<String>,
     status: String,
-    logs: Vec<String>,
+    logs: Vec<Log>,
     transaction_hash: String,
     contract_address: Option<String>,
     gas_used: String,
+}
+
+
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+struct Log {
+    pub address: String,
+    pub topics: Vec<String>,
+    pub data: String,
+    pub block_number: String,
+    pub transaction_hash: String,
+    pub transaction_index: String,
+    pub block_hash: String,
+    pub log_index: String,
+    pub removed: bool,
 }
 
 #[derive(Deserialize, Debug)]
@@ -107,6 +122,8 @@ struct RpcResponse<T> {
     #[serde(rename = "result")]
     result: Option<T>,
 }
+
+
 
 #[derive(Deserialize, Debug)]
 struct ResultData {
@@ -149,6 +166,18 @@ pub(crate) fn on_checking_bnb_transfer(
     Ok(None)
 }
 
+pub fn on_check_issue_result(response: CallResult<HttpResponse>,) -> Result<Option<String>, Box<dyn std::error::Error>>{
+    let r = response.map_err(|e|e.to_string())?;
+    let response: RpcResponse<ResultData> = serde_json::from_slice(&r.body)
+        .map_err(|e| format!("unable to deserialize body from BSC rpc: {:?}", e))?;
+    if let Some(result_data) = response.result {
+        let receipt = result_data.receipt;
+        if let Some(v) = receipt.logs.first() {
+            return Ok(Some(v.address.clone()));
+        }
+    }
+    Ok(None)
+}
 pub(crate) async fn issuse_token(community: &Community, address: AccountId, token: TokenMetadata) {
     let contract_bytecode = hex::decode(
         &fs::read_to_string(Path::new("../token.bytecode")).expect("failed  to read bytecode file").trim()

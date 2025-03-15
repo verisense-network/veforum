@@ -10,7 +10,7 @@ use vemodel::*;
 use vrs_core_sdk::{
     callback, codec::*, error::RuntimeError, http::*, set_timer, storage, timer, CallResult,
 };
-use crate::agent::bsc::{check_gas_price, TransactionDetails, untrace_issue_tx};
+use crate::agent::bsc::{check_gas_price, on_check_issue_result, TransactionDetails, untrace_issue_tx};
 
 pub const OPENAI: [u8; 4] = *b"opai";
 pub const DEEPSEEK: [u8; 4] = *b"dpsk";
@@ -54,6 +54,7 @@ pub enum HttpCallType {
     CheckingTx(CommunityId),
     SendIssueTx(CommunityId),
     QueryBscGasPrice,
+    QueryIssueResult(CommunityId),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -271,12 +272,40 @@ fn untrace(
             match untrace_issue_tx(response) {
                 Ok(tx) => {
                     match tx {
-                        None => {}
-                        Some(_) => {}
+                        None => {
+                            vrs_core_sdk::eprintln!("untrace issue tx error: txid notfound");
+                        }
+                        Some(tx) => {
+                            let mut v: Vec<(CommunityId, H256)> = crate::find(PENDING_ISSUE_KEY.as_bytes()).unwrap_or_default().unwrap_or_default();
+                            v.push((community, tx));
+                            crate::save(PENDING_ISSUE_KEY.as_bytes(), &v);
+                        }
                     }
                 }
                 Err(e) => {
                     vrs_core_sdk::eprintln!("untrace issue tx error: {}", e.to_string());
+                }
+            }
+        }
+        HttpCallType::QueryIssueResult(community_id) => {
+            match on_check_issue_result(response) {
+                Ok(r) => {
+                    match r {
+                        None => {
+                            vrs_core_sdk::eprintln!("untrace query issue result is null");
+                        }
+                        Some(s) => {
+                            let key = crate::trie::to_community_key(community_id);
+                            let mut community =
+                                crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
+                            let contruct_addr = AccountId::from_str(s.as_str())?;
+                            community.token_info.contract = contruct_addr;
+                            crate::save(&key, &community)?;
+                        }
+                    }
+                }
+                Err(e) => {
+                    vrs_core_sdk::eprintln!("untrace query issue result err: {}", e.to_string());
                 }
             }
         }
@@ -400,7 +429,7 @@ pub(crate) fn check_transfering(community: &Community, tx: String) -> Result<(),
         CommunityStatus::WaitingTx(_)
         | CommunityStatus::Frozen(_)
         | CommunityStatus::CreateFailed(_) => {
-            let id = bsc::initiate_checking_bnb_transfer(&tx)?;
+            let id = bsc::initiate_query_bsc_transaction(&tx)?;
             trace(id, HttpCallType::CheckingTx(community.id())).map_err(|e| e.to_string())
         }
     }

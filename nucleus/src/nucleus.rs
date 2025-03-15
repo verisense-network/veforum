@@ -1,8 +1,11 @@
+use ethers_core::types::TxHash;
 use crate::{trie, validate_write_permission};
 use parity_scale_codec::{Decode, Encode};
+use primitive_types::H256;
 use vemodel::{args::*, crypto::*, *};
 use vrs_core_sdk::{get, post, set_timer, storage, timer, tss};
-use crate::agent::{bsc, HttpCallType};
+use crate::agent::{bsc, HttpCallType, PENDING_ISSUE_KEY, trace};
+use crate::agent::bsc::initiate_query_bsc_transaction;
 
 type SignedArgs<T> = Args<T, EcdsaSignature>;
 
@@ -343,4 +346,17 @@ pub fn query_bsc_gas_price() {
     let id = bsc::query_gas_price().expect("query price error");
     crate::agent::trace(id, HttpCallType::QueryBscGasPrice).map_err(|e| e.to_string()).expect("query price error");
     set_timer!(std::time::Duration::from_secs(20), query_bsc_gas_price);
+}
+
+#[timer]
+pub fn fetch_token_conctact_addr() {
+    let pending_issues: Result<Option<Vec<(CommunityId, H256)>>, String> = crate::find(PENDING_ISSUE_KEY.as_bytes());
+    if let Ok(Some(v)) = pending_issues {
+        for (community_id, tx_hash) in v {
+            let tx_hash = format!("0x{}", hex::encode(tx_hash.0.as_slice()));
+            if let Ok(id) = initiate_query_bsc_transaction(tx_hash.as_str()) {
+                trace(id, HttpCallType::QueryIssueResult(community_id));
+            }
+        }
+    }
 }
