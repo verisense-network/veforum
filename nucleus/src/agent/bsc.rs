@@ -178,7 +178,7 @@ pub fn on_check_issue_result(response: CallResult<HttpResponse>,) -> Result<Opti
     }
     Ok(None)
 }
-pub(crate) async fn issuse_token(community: &Community, address: AccountId, token: TokenMetadata) {
+pub(crate) fn issuse_token(community: &Community) {
     let contract_bytecode = hex::decode(
         &fs::read_to_string(Path::new("../token.bytecode")).expect("failed  to read bytecode file").trim()
     ).expect("invalid bytecode");
@@ -186,6 +186,7 @@ pub(crate) async fn issuse_token(community: &Community, address: AccountId, toke
         fs::File::open(Path::new("build/ERC20.abi"))
             .expect("Failed to read ABI file")
     ).expect("invalid abi");
+    let token = community.token_info.clone();
     let constructor_args = ethabi::encode(&[
         Token::String(token.name.clone()),
         Token::String(token.symbol.clone()),
@@ -195,7 +196,8 @@ pub(crate) async fn issuse_token(community: &Community, address: AccountId, toke
     let full_bytecode = [contract_bytecode, constructor_args].concat();
     let gas_price: Option<u64> = crate::find(GASPRICE_STORAGE_KEY.as_bytes()).unwrap_or_default();
     let gas_price = gas_price.map(|s|U256::from(s));
-    let addr = Address::from_slice(address.0.as_slice());
+    let addr = community.agent_pubkey.clone();
+    let addr = Address::from_slice(addr.0.as_slice());
     let tx = TransactionRequest {
         from: Some(addr),
         to: None,
@@ -210,12 +212,12 @@ pub(crate) async fn issuse_token(community: &Community, address: AccountId, toke
 
     let wallet = LocalWallet::from_str("2222222222").unwrap();
 
-    let r: Signature = wallet.sign_transaction(&tx).await.unwrap();
+    //TODO
+  /*  let r: Signature = wallet.sign_transaction(&tx).await.unwrap();
     let signed_tx = tx.rlp_signed(&r);
     let raw = format!("0x{}", hex::encode(signed_tx.to_vec()));
     let id = send_raw_transaction(raw.as_str()).expect("send raw error");
-    trace(id, HttpCallType::SendIssueTx(community.id())).map_err(|e| e.to_string()).expect("send Issue tx error");
-
+    trace(id, HttpCallType::SendIssueTx(community.id())).map_err(|e| e.to_string()).expect("send Issue tx error");*/
 }
 
 

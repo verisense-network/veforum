@@ -10,7 +10,7 @@ use vemodel::*;
 use vrs_core_sdk::{
     callback, codec::*, error::RuntimeError, http::*, set_timer, storage, timer, CallResult,
 };
-use crate::agent::bsc::{check_gas_price, on_check_issue_result, TransactionDetails, untrace_issue_tx};
+use crate::agent::bsc::{check_gas_price, issuse_token, on_check_issue_result, TransactionDetails, untrace_issue_tx};
 
 pub const OPENAI: [u8; 4] = *b"opai";
 pub const DEEPSEEK: [u8; 4] = *b"dpsk";
@@ -113,15 +113,7 @@ fn untrace(
                     if tx.amount_received >= crate::MIN_ACTIVATE_FEE {
                         // TODO move this to after token issued
                         //token issue
-
-                        storage::put(
-                            &crate::trie::to_balance_key(community_id, community.agent_pubkey),
-                            community.token_info.total_issuance.encode(),
-                        )
-                        .map_err(|e| e.to_string())?;
-                        crate::agent::init_agent(&community)?;
-                        community.status = CommunityStatus::Active;
-
+                        issuse_token(&community);
                     } else {
                         community.status = CommunityStatus::CreateFailed(
                             "The received amount is not enough".to_string(),
@@ -300,6 +292,12 @@ fn untrace(
                                 crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
                             let contruct_addr = AccountId::from_str(s.as_str())?;
                             community.token_info.contract = contruct_addr;
+                            storage::put(&crate::trie::to_balance_key(community_id, community.agent_pubkey),
+                              community.token_info.total_issuance.encode(),
+                            )
+                            .map_err(|e| e.to_string())?;
+                            crate::agent::init_agent(&community)?;
+                            community.status = CommunityStatus::Active;
                             crate::save(&key, &community)?;
                         }
                     }
