@@ -15,11 +15,13 @@ use vrs_core_sdk::{
     CallResult,
     http::{self, HttpMethod, HttpRequest, HttpResponse, RequestHead},
 };
+use vrs_core_sdk::tss::CryptoType;
 
 use vemodel::{AccountId, Community, CommunityId, TokenMetadata};
 
 use crate::agent::{bsc, GASPRICE_STORAGE_KEY, HttpCallType, trace};
 
+pub const BSC_CHAIN_ID:u64 = 56;
 pub const BSC_URL: &str = "https://bsc-dataseed.binance.org/";
 
 pub(crate) fn initiate_query_bsc_transaction(tx_hash: &str) -> Result<u64, String> {
@@ -178,7 +180,7 @@ pub fn on_check_issue_result(response: CallResult<HttpResponse>,) -> Result<Opti
     }
     Ok(None)
 }
-pub(crate) fn issuse_token(community: &Community) {
+pub(crate) fn issuse_token(community: &Community, community_id: &CommunityId) -> Result<(), String> {
     let contract_bytecode = hex::decode(
         &fs::read_to_string(Path::new("../token.bytecode")).expect("failed  to read bytecode file").trim()
     ).expect("invalid bytecode");
@@ -209,15 +211,19 @@ pub(crate) fn issuse_token(community: &Community) {
         chain_id: Some(U64::from(56)),
     };
     let tx = TypedTransaction::Legacy(tx);
-
-    let wallet = LocalWallet::from_str("2222222222").unwrap();
-
-    //TODO
-  /*  let r: Signature = wallet.sign_transaction(&tx).await.unwrap();
-    let signed_tx = tx.rlp_signed(&r);
+    let sign_hash = tx.sighash();
+    let r = vrs_core_sdk::tss::tss_sign(CryptoType::Secp256k1, community_id.to_be_bytes(), sign_hash.0).map_err(|e|e.to_string())?;
+    let v: u64 = r.last().unwrap().clone() as u64 + BSC_CHAIN_ID * 2 + 35 ;
+    let signature = Signature {
+        v,
+        r: U256::from_big_endian(&r[0..32]),
+        s: U256::from_big_endian(&r[32..64]),
+    };
+    let signed_tx = tx.rlp_signed(&signature);
     let raw = format!("0x{}", hex::encode(signed_tx.to_vec()));
     let id = send_raw_transaction(raw.as_str()).expect("send raw error");
-    trace(id, HttpCallType::SendIssueTx(community.id())).map_err(|e| e.to_string()).expect("send Issue tx error");*/
+    trace(id, HttpCallType::SendIssueTx(community.id())).map_err(|e| e.to_string()).expect("send Issue tx error");
+    Ok(())
 }
 
 

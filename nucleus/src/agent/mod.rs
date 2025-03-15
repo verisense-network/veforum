@@ -113,7 +113,13 @@ fn untrace(
                     if tx.amount_received >= crate::MIN_ACTIVATE_FEE {
                         // TODO move this to after token issued
                         //token issue
-                        issuse_token(&community);
+                        let issue_result = issuse_token(&community, &community_id);
+                        if issue_result.is_err() {
+                            vrs_core_sdk::eprintln!("failed to send issue token: {}", issue_result.err().unwrap());
+                            community.status = CommunityStatus::CreateFailed(
+                                "issue token error".to_string(),
+                            );
+                        }
                     } else {
                         community.status = CommunityStatus::CreateFailed(
                             "The received amount is not enough".to_string(),
