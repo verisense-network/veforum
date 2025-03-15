@@ -26,3 +26,4 @@ Cargo.lock
 data.ms/
 meilisearch
 /data
+.idea

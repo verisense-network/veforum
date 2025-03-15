@@ -3,15 +3,19 @@ pub(crate) mod openai;
 // pub(crate) mod solana;
 
 use std::str::FromStr;
+use primitive_types::H256;
 
 use serde::de::DeserializeOwned;
 use vemodel::*;
 use vrs_core_sdk::{
     callback, codec::*, error::RuntimeError, http::*, set_timer, storage, timer, CallResult,
 };
+use crate::agent::bsc::{check_gas_price, TransactionDetails, untrace_issue_tx};
 
 pub const OPENAI: [u8; 4] = *b"opai";
 pub const DEEPSEEK: [u8; 4] = *b"dpsk";
+pub const GASPRICE_STORAGE_KEY: &str = "gas_price";
+pub const PENDING_ISSUE_KEY: &str = "pending_issue";
 
 pub const DEEPSEEK_API_HOST: &'static str = "https://api.deepseek.ai";
 
@@ -48,6 +52,8 @@ pub enum HttpCallType {
     PullingMessage(ContentId),
     SubmittingToolCall(ContentId),
     CheckingTx(CommunityId),
+    SendIssueTx(CommunityId),
+    QueryBscGasPrice,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -74,7 +80,7 @@ pub fn on_response(id: u64, response: CallResult<HttpResponse>) {
     }
 }
 
-fn trace(id: u64, call_type: HttpCallType) -> Result<(), RuntimeError> {
+pub(crate) fn trace(id: u64, call_type: HttpCallType) -> Result<(), RuntimeError> {
     let key = crate::trie::http_trace_key(id);
     storage::put(&key, &call_type.encode())
 }
@@ -105,6 +111,8 @@ fn untrace(
                 Ok(Some(tx)) => {
                     if tx.amount_received >= crate::MIN_ACTIVATE_FEE {
                         // TODO move this to after token issued
+                        //token issue
+
                         storage::put(
                             &crate::trie::to_balance_key(community_id, community.agent_pubkey),
                             community.token_info.total_issuance.encode(),
@@ -112,6 +120,7 @@ fn untrace(
                         .map_err(|e| e.to_string())?;
                         crate::agent::init_agent(&community)?;
                         community.status = CommunityStatus::Active;
+
                     } else {
                         community.status = CommunityStatus::CreateFailed(
                             "The received amount is not enough".to_string(),
@@ -251,6 +260,24 @@ fn untrace(
                 };
                 crate::save(&key, &comment)?;
                 crate::save_event(Event::CommentPosted(id))?;
+            }
+        }
+        HttpCallType::QueryBscGasPrice => {
+            if let Ok(Some(u)) = check_gas_price(response) {
+                crate::save(GASPRICE_STORAGE_KEY.as_bytes(), &u)?;
+            }
+        }
+        HttpCallType::SendIssueTx(community) => {
+            match untrace_issue_tx(response) {
+                Ok(tx) => {
+                    match tx {
+                        None => {}
+                        Some(_) => {}
+                    }
+                }
+                Err(e) => {
+                    vrs_core_sdk::eprintln!("untrace issue tx error: {}", e.to_string());
+                }
             }
         }
     }

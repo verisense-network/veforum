@@ -272,6 +272,7 @@ impl Account {
 
 #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
 pub struct TokenMetadata {
+    pub name: String,
     pub symbol: String,
     pub total_issuance: u64,
     pub decimals: u8,

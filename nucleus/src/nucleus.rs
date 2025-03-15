@@ -1,7 +1,8 @@
 use crate::{trie, validate_write_permission};
 use parity_scale_codec::{Decode, Encode};
 use vemodel::{args::*, crypto::*, *};
-use vrs_core_sdk::{get, post, storage, timer, tss};
+use vrs_core_sdk::{get, post, set_timer, storage, timer, tss};
+use crate::agent::{bsc, HttpCallType};
 
 type SignedArgs<T> = Args<T, EcdsaSignature>;
 
@@ -44,6 +45,7 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
         llm_key,
     } = payload;
     let token_info = TokenMetadata {
+        name:"AI".to_string(),//TODO
         symbol: token.symbol,
         total_issuance: token.total_issuance,
         decimals: token.decimals,
@@ -334,4 +336,11 @@ fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u64), Str
         crate::find::<Community>(&community_key)?.ok_or("Community not found".to_string())?;
     community.prompt = Default::default();
     Ok((community, balance))
+}
+
+#[timer]
+pub fn query_bsc_gas_price() {
+    let id = bsc::query_gas_price().expect("query price error");
+    crate::agent::trace(id, HttpCallType::QueryBscGasPrice).map_err(|e| e.to_string()).expect("query price error");
+    set_timer!(std::time::Duration::from_secs(20), query_bsc_gas_price);
 }
