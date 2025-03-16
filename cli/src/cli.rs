@@ -85,10 +85,10 @@ impl Options {
 
 #[derive(Debug, Subcommand)]
 pub enum SubCmd {
-    CreateCommunity(CommunityCommand),
-    ActivateCommunity(ActivateCommand),
-    PostThread(ThreadCommand),
-    PostComment(CommentCommand),
+    // CreateCommunity(CommunityCommand),
+    // ActivateCommunity(ActivateCommand),
+    // PostThread(ThreadCommand),
+    // PostComment(CommentCommand),
     GetCommunity(GetCommunityCommand),
     GetContent(GetContentCommand),
     GetEvents(GetEventsCommand),
@@ -222,7 +222,7 @@ impl Into<vemodel::args::PostCommentArg> for CommentCommand {
         let stream = encoder.finish().unwrap();
         vemodel::args::PostCommentArg {
             thread: self.thread.parse().expect("invalid thread id"),
-            content: self.content,
+            content: stream,
             images: vec![],
             mention: vec![],
             reply_to: None,

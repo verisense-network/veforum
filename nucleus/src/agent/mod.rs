@@ -32,7 +32,7 @@ pub(crate) fn get_sys_key(vendor: [u8; 4]) -> Result<String, String> {
 
 fn decorate_prompt(community: &str, account: &AccountId, prompt: &str) -> String {
     format!(
-        "你是一名论坛{}版块的管理员，论坛程序将会把每篇帖子或者at你的评论以json格式发送给你。其中，author和mention的数据类型为user_id，你自己的user_id={}。你需要阅读这些内容，并且根据本版块的规则进行响应，本版块的规则如下：\n{}",
+        "你是一名论坛{}版块的管理员，论坛程序将会把每篇帖子或者at你的评论以json格式发送给你。其中，author和mention的数据类型为BSC链地址，以0x开头，表示用户id，你自己的user_id={}。你需要阅读这些内容，并且根据本版块的规则进行响应，本版块的规则如下：\n{}",
         community,
         account,
         prompt

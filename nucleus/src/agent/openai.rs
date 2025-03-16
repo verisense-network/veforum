@@ -17,13 +17,13 @@ pub(crate) fn create_assistant(key: &str, name: &str, prompt: &str) -> Result<u6
             "type": "function",
             "function": {
                 "name": "transfer",
-                "description": "Transfer funds to another account",
+                "description": "Transfer funds to another user",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "recipient": {
                             "type": "string",
-                            "description": "The recipient account_id, e.g. HQs68wmw1FAwzaduh3hBisZ7LorYiam8zNGCWvE8YuMP"
+                            "description": "The recipient user_id"
                         },
                         "amount": {
                             "type": "number",
@@ -39,19 +39,19 @@ pub(crate) fn create_assistant(key: &str, name: &str, prompt: &str) -> Result<u6
             "type": "function",
             "function": {
                 "name": "agent_balance",
-                "description": "Check the agent account balance"
+                "description": "Check the agent's balance"
             }
         },{
             "type": "function",
             "function": {
                 "name": "balance_of",
-                "description": "Query the balance of an account",
+                "description": "Query the balance of a user",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "account_id": {
                             "type": "string",
-                            "description": "The account_id to query, e.g. HQs68wmw1FAwzaduh3hBisZ7LorYiam8zNGCWvE8YuMP"
+                            "description": "The user_id to query"
                         }
                     },
                     "required": ["account_id"],

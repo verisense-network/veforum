@@ -184,7 +184,7 @@ impl std::str::FromStr for H160 {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s: Option<[u8; 20]> = hex::decode(s.trim_start_matches("0x"))
+        let s: Option<[u8; 20]> = hex::decode(s.to_lowercase().trim_start_matches("0x"))
             .map(|v| v.try_into().ok())
             .map_err(|e| e.to_string())?;
         s.map(|v| Self(v)).ok_or("invalid account id".to_string())
