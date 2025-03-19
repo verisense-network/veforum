@@ -1,13 +1,15 @@
+use std::time::Duration;
 use ethers_core::types::TxHash;
 use crate::{trie, validate_write_permission};
 use parity_scale_codec::{Decode, Encode};
 use primitive_types::H256;
 use vemodel::{args::*, crypto::*, *};
-use vrs_core_sdk::{get, post, set_timer, storage, timer, tss};
+use vrs_core_sdk::{get, init, post, set_timer, storage, timer, tss};
 use crate::agent::{bsc, HttpCallType, PENDING_ISSUE_KEY, trace};
 use crate::agent::bsc::initiate_query_bsc_transaction;
 
 type SignedArgs<T> = Args<T, EcdsaSignature>;
+
 
 // TODO authorization
 #[post]
@@ -341,11 +343,19 @@ fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u64), Str
     Ok((community, balance))
 }
 
+
+#[init]
+pub fn init() {
+    vrs_core_sdk::println!("call init");
+    set_timer!(Duration::from_secs(5), query_bsc_gas_price);
+}
+
 #[timer]
 pub fn query_bsc_gas_price() {
-    let id = bsc::query_gas_price().expect("query price error");
-    crate::agent::trace(id, HttpCallType::QueryBscGasPrice).map_err(|e| e.to_string()).expect("query price error");
-    set_timer!(std::time::Duration::from_secs(20), query_bsc_gas_price);
+    vrs_core_sdk::println!("start to query bas gasprice");
+/*    let id = bsc::query_gas_price().expect("query price error");
+    crate::agent::trace(id, HttpCallType::QueryBscGasPrice).map_err(|e| e.to_string()).expect("query price error");*/
+    set_timer!(std::time::Duration::from_secs(10), query_bsc_gas_price);
 }
 
 #[timer]

@@ -262,6 +262,7 @@ fn untrace(
         }
         HttpCallType::QueryBscGasPrice => {
             if let Ok(Some(u)) = check_gas_price(response) {
+                vrs_core_sdk::eprintln!("got bsc gas price: {}", u);
                 crate::save(GASPRICE_STORAGE_KEY.as_bytes(), &u)?;
             }
         }

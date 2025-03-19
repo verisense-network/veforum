@@ -85,10 +85,10 @@ impl Options {
 
 #[derive(Debug, Subcommand)]
 pub enum SubCmd {
-    // CreateCommunity(CommunityCommand),
-    // ActivateCommunity(ActivateCommand),
-    // PostThread(ThreadCommand),
-    // PostComment(CommentCommand),
+    CreateCommunity(CommunityCommand),
+    ActivateCommunity(ActivateCommand),
+    PostThread(ThreadCommand),
+    PostComment(CommentCommand),
     GetCommunity(GetCommunityCommand),
     GetContent(GetContentCommand),
     GetEvents(GetEventsCommand),
