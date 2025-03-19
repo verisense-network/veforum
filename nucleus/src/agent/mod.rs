@@ -111,7 +111,6 @@ fn untrace(
             {
                 Ok(Some(tx)) => {
                     if tx.amount_received >= crate::MIN_ACTIVATE_FEE {
-                        // TODO move this to after token issued
                         //token issue
                         let issue_result = issuse_token(&community, &community_id);
                         if issue_result.is_err() {
