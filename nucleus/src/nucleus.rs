@@ -346,8 +346,8 @@ fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u64), Str
 
 #[init]
 pub fn init() {
-    vrs_core_sdk::println!("call init");
-    set_timer!(Duration::from_secs(5), query_bsc_gas_price);
+    vrs_core_sdk::println!("call init>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+  //  set_timer!(Duration::from_secs(5), query_bsc_gas_price);
 }
 
 #[timer]
