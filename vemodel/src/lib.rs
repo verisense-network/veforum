@@ -1,6 +1,9 @@
+use args::CreateCommunityArg;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use ts_rs::TS;
+use wasm_bindgen::prelude::*;
 
 pub type CommunityId = u32;
 pub type EventId = u64;
@@ -35,6 +38,8 @@ pub enum Event {
 }
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize, Eq, PartialEq)]
+#[cfg_attr(feature = "wasm-bind", derive(TS))]
+#[cfg_attr(feature = "wasm-bind", ts(export))]
 pub enum CommunityStatus {
     PendingCreation,
     WaitingTx(u128),
@@ -44,6 +49,8 @@ pub enum CommunityStatus {
 }
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
+#[cfg_attr(feature = "wasm-bind", derive(TS))]
+#[cfg_attr(feature = "wasm-bind", ts(export))]
 pub struct Community {
     pub id: String,
     pub private: bool,
@@ -87,7 +94,24 @@ impl Community {
     }
 }
 
+#[cfg_attr(feature = "wasm-bind", wasm_bindgen(js_name = encodeCreateCommunityArg))]
+pub fn encode_create_community_arg(community_js: JsValue) -> Result<Vec<u8>, JsValue> {
+    let community: CreateCommunityArg = serde_wasm_bindgen::from_value(community_js)
+        .map_err(|e| JsValue::from_str(&format!("Failed to deserialize community: {}", e)))?;
+    Ok(community.encode())
+}
+
+#[cfg_attr(feature = "wasm-bind", wasm_bindgen(js_name = decodeCreateCommunityArg))]
+pub fn decode_create_community_arg(data: Vec<u8>) -> Result<JsValue, JsValue> {
+    let community = CreateCommunityArg::decode(&mut &data[..])
+        .map_err(|e| JsValue::from_str(&format!("Invalid community data: {}", e)))?;
+    serde_wasm_bindgen::to_value(&community)
+        .map_err(|e| JsValue::from_str(&format!("Failed to serialize community: {}", e)))
+}
+
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
+#[cfg_attr(feature = "wasm-bind", derive(TS))]
+#[cfg_attr(feature = "wasm-bind", ts(export))]
 pub struct Thread {
     pub id: String,
     pub community_name: String,
@@ -112,6 +136,8 @@ impl Thread {
 }
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
+#[cfg_attr(feature = "wasm-bind", derive(TS))]
+#[cfg_attr(feature = "wasm-bind", ts(export))]
 pub struct Comment {
     pub id: String,
     pub content: Vec<u8>,
@@ -141,6 +167,8 @@ impl Comment {
 pub type AccountId = H160;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Decode, Encode)]
+#[cfg_attr(feature = "wasm-bind", derive(TS))]
+#[cfg_attr(feature = "wasm-bind", ts(export))]
 pub struct H160(pub [u8; 20]);
 
 impl H160 {
@@ -271,6 +299,8 @@ impl Account {
 }
 
 #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
+#[cfg_attr(feature = "wasm-bind", derive(TS))]
+#[cfg_attr(feature = "wasm-bind", ts(export))]
 pub struct TokenMetadata {
     pub symbol: String,
     pub total_issuance: u64,
@@ -280,6 +310,8 @@ pub struct TokenMetadata {
 }
 
 #[derive(Debug, Clone, Decode, Encode, Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm-bind", derive(TS))]
+#[cfg_attr(feature = "wasm-bind", ts(export))]
 pub enum LlmVendor {
     OpenAI { key: String },
     DeepSeek { key: String, host: String },
@@ -412,6 +444,8 @@ pub mod args {
     }
 
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
+    #[cfg_attr(feature = "wasm-bind", derive(TS))]
+    #[cfg_attr(feature = "wasm-bind", ts(export))]
     pub struct CreateCommunityArg {
         pub name: String,
         pub private: bool,
@@ -426,6 +460,8 @@ pub mod args {
     }
 
     #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
+    #[cfg_attr(feature = "wasm-bind", derive(TS))]
+    #[cfg_attr(feature = "wasm-bind", ts(export))]
     pub struct TokenMetadataArg {
         pub symbol: String,
         pub total_issuance: u64,
