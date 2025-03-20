@@ -1,5 +1,6 @@
 pub(crate) mod bsc;
 pub(crate) mod openai;
+pub mod contract;
 // pub(crate) mod solana;
 
 use std::str::FromStr;
@@ -10,12 +11,15 @@ use vemodel::*;
 use vrs_core_sdk::{
     callback, codec::*, error::RuntimeError, http::*, set_timer, storage, timer, CallResult,
 };
+use vemodel::CommunityStatus::{PendingCreation, TokenIssued, WaitingTx};
 use crate::agent::bsc::{check_gas_price, issuse_token, on_check_issue_result, TransactionDetails, untrace_issue_tx};
+use crate::trie::to_community_key;
 
 pub const OPENAI: [u8; 4] = *b"opai";
 pub const DEEPSEEK: [u8; 4] = *b"dpsk";
 pub const GASPRICE_STORAGE_KEY: &str = "gas_price";
 pub const PENDING_ISSUE_KEY: &str = "pending_issue";
+pub const WAITING_ISSUE_KEY: &str = "waitting_issue";
 
 pub const DEEPSEEK_API_HOST: &'static str = "https://api.deepseek.ai";
 
@@ -101,42 +105,43 @@ fn untrace(
     storage::del(key).map_err(|e| e.to_string())?;
     match call_type {
         HttpCallType::CheckingTx(community_id) => {
+
             let key = crate::trie::to_community_key(community_id);
             let mut community =
                 crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
             let agent_addr = community.agent_pubkey.to_string();
             match bsc::on_checking_bnb_transfer(&agent_addr, response)
                 .map_err(|e| e.to_string())
-                .inspect_err(|e| eprintln!("failed to resolve solana RPC response, {:?}", e))
+                .inspect_err(|e| println!("failed to resolve solana RPC response, {:?}", e))
             {
                 Ok(Some(tx)) => {
-                    if tx.amount_received >= crate::MIN_ACTIVATE_FEE {
-                        //token issue
-                        let issue_result = issuse_token(&community, &community_id);
-                        if issue_result.is_err() {
-                            vrs_core_sdk::eprintln!("failed to send issue token: {}", issue_result.err().unwrap());
-                            community.status = CommunityStatus::CreateFailed(
-                                "issue token error".to_string(),
-                            );
+
+                    match community.status.clone() {
+                        WaitingTx(min_fee) => {
+                            if tx.amount_received >= min_fee {
+                                let mut v: Vec<CommunityId> = crate::find(WAITING_ISSUE_KEY.as_bytes()).unwrap_or_default().unwrap_or_default();
+                                v.push(community.id());
+                                crate::save(WAITING_ISSUE_KEY.as_bytes(), &v);
+                                community.status = PendingCreation;
+                                crate::save_event(Event::CommunityUpdated(community.id()))?;
+                                crate::save(&key, &community)?;
+                            }
+
                         }
-                    } else {
-                        community.status = CommunityStatus::CreateFailed(
-                            "The received amount is not enough".to_string(),
-                        );
+                        _ => {}
                     }
+
                 }
                 Ok(None) => {
-                    community.status =
-                        CommunityStatus::CreateFailed("No transfer found".to_string());
+             /*       community.status =
+                        CommunityStatus::CreateFailed("No transfer found".to_string());*/
                 }
                 Err(_) => {
-                    community.status = CommunityStatus::CreateFailed(
+             /*       community.status = CommunityStatus::CreateFailed(
                         "Failed to resolve the tx from BSC RPC".to_string(),
-                    );
+                    );*/
                 }
             }
-            crate::save_event(Event::CommunityUpdated(community.id()))?;
-            crate::save(&key, &community)?;
         }
         HttpCallType::CreatingAgent(community_id) => {
             let assistant_id = openai::resolve_assistant_id(response)?;
@@ -220,7 +225,7 @@ fn untrace(
                     )?;
                 }
                 InvocationStatus::Failed => {
-                    vrs_core_sdk::eprintln!("{:?}", serde_json::to_string(&run))
+                    vrs_core_sdk::println!("{:?}", serde_json::to_string(&run))
                 }
             }
         }
@@ -262,7 +267,7 @@ fn untrace(
         }
         HttpCallType::QueryBscGasPrice => {
             if let Ok(Some(u)) = check_gas_price(response) {
-                vrs_core_sdk::eprintln!("got bsc gas price: {}", u);
+                vrs_core_sdk::println!("got bsc gas price: {}", u);
                 crate::save(GASPRICE_STORAGE_KEY.as_bytes(), &u)?;
             }
         }
@@ -271,26 +276,33 @@ fn untrace(
                 Ok(tx) => {
                     match tx {
                         None => {
-                            vrs_core_sdk::eprintln!("untrace issue tx error: txid notfound");
+                            vrs_core_sdk::println!("untrace issue tx error: txid notfound");
                         }
                         Some(tx) => {
                             let mut v: Vec<(CommunityId, H256)> = crate::find(PENDING_ISSUE_KEY.as_bytes()).unwrap_or_default().unwrap_or_default();
                             v.push((community, tx));
                             crate::save(PENDING_ISSUE_KEY.as_bytes(), &v);
+                            let key = to_community_key(community);
+                            let mut communityo =
+                                crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
+                            communityo.status = TokenIssued(format!("0x{}", hex::encode(tx.0.as_slice())));
+                            crate::save(&key, &communityo)?;
+                            crate::save_event(Event::CommunityUpdated(communityo.id()))?;
                         }
                     }
                 }
                 Err(e) => {
-                    vrs_core_sdk::eprintln!("untrace issue tx error: {}", e.to_string());
+                    vrs_core_sdk::println!("untrace issue tx error: {}", e.to_string());
                 }
             }
         }
         HttpCallType::QueryIssueResult(community_id) => {
+
             match on_check_issue_result(response) {
                 Ok(r) => {
                     match r {
                         None => {
-                            vrs_core_sdk::eprintln!("untrace query issue result is null");
+                            vrs_core_sdk::println!("untrace query issue result is null");
                         }
                         Some(s) => {
                             let key = crate::trie::to_community_key(community_id);
@@ -305,11 +317,12 @@ fn untrace(
                             crate::agent::init_agent(&community)?;
                             community.status = CommunityStatus::Active;
                             crate::save(&key, &community)?;
+                            crate::save_event(Event::CommunityUpdated(community.id()))?;
                         }
                     }
                 }
                 Err(e) => {
-                    vrs_core_sdk::eprintln!("untrace query issue result err: {}", e.to_string());
+                    vrs_core_sdk::println!("untrace query issue result err: {}", e.to_string());
                 }
             }
         }
@@ -428,8 +441,16 @@ fn call_tool(on: &Community, func: &str, params: &str) -> Result<String, String>
 }
 
 pub(crate) fn check_transfering(community: &Community, tx: String) -> Result<(), String> {
-    match community.status {
-        CommunityStatus::PendingCreation | CommunityStatus::Active => Ok(()),
+    vrs_core_sdk::println!("community_status:>>>>>>>>>>>>>>>>>>>> {:?}", &community);
+    match community.status.clone() {
+        CommunityStatus::PendingCreation|  CommunityStatus::Active => Ok(()),
+        TokenIssued(issue_tx) => {
+            let mut v: Vec<(CommunityId, H256)> = crate::find(PENDING_ISSUE_KEY.as_bytes()).unwrap_or_default().unwrap_or_default();
+            let tx = H256::from_str(issue_tx.trim_start_matches("0x")).unwrap();
+            v.push((community.id(), tx));
+            crate::save(PENDING_ISSUE_KEY.as_bytes(), &v);
+            Ok(())
+        },
         CommunityStatus::WaitingTx(_)
         | CommunityStatus::Frozen(_)
         | CommunityStatus::CreateFailed(_) => {

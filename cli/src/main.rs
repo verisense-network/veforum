@@ -1,11 +1,11 @@
 mod cli;
 
-// use ed25519_dalek::{Signer, SigningKey};
+use ed25519_dalek::{Signer, SigningKey};
 use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
 use jsonrpsee::{core::client::ClientT, rpc_params};
 use parity_scale_codec::{Decode, Encode};
 use vemodel::{args::*, *};
-use vrs_core_sdk::NucleusId;
+use vrs_core_sdk::{NucleusId};
 
 // TODO
 pub async fn set_openai_key<T: ClientT>(
@@ -32,14 +32,14 @@ pub async fn get_balances<T: ClientT>(
     Result::<Vec<(Community, u64)>, String>::decode(&mut &hex[..])?.map_err(|e| e.into())
 }
 
-pub async fn create_community<T: ClientT>(
+/*pub async fn create_community<T: ClientT>(
     client: T,
     nucleus_id: NucleusId,
     args: CreateCommunityArg,
     signer: SigningKey,
 ) -> Result<CommunityId, Box<dyn std::error::Error>> {
     let account_id = AccountId(signer.verifying_key().to_bytes());
-    let account = get_account_info(&client, &nucleus_id, account_id).await?;
+    let account = get_account_info(&client, &nucleus_id, account_id.clone()).await?;
     let mut args = Args {
         signature: Signature([0u8; 64]),
         signer: account_id,
@@ -112,7 +112,7 @@ pub async fn post_comment<T: ClientT>(
     let hex = hex::decode(&hex_str)?;
     Result::<ContentId, String>::decode(&mut &hex[..])?.map_err(|e| e.into())
 }
-
+*/
 pub async fn get_community<T: ClientT>(
     client: T,
     nucleus_id: NucleusId,
@@ -196,7 +196,7 @@ pub async fn main() {
     let cli = Cli::parse();
     let nucleus_id = cli.options.get_nucleus().expect("invalid nucleus id");
     match cli.cmd {
-        SubCmd::CreateCommunity(cmd) => {
+    /*    SubCmd::CreateCommunity(cmd) => {
             let client = build_client(&cli.options.get_rpc());
             let signer = cli.options.get_signer().unwrap();
             match create_community(client, nucleus_id, cmd.into(), signer).await {
@@ -226,7 +226,7 @@ pub async fn main() {
                 Ok(id) => println!("{}", id),
                 Err(e) => eprintln!("{:?}", e),
             }
-        }
+        }*/
         SubCmd::GetCommunity(cmd) => {
             let client = build_client(&cli.options.get_rpc());
             let community_id = cmd.id;
@@ -269,5 +269,6 @@ pub async fn main() {
                 Err(e) => eprintln!("{:?}", e),
             }
         }
+        _ => {}
     }
 }

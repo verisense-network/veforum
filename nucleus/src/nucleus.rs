@@ -1,12 +1,12 @@
 use std::time::Duration;
-use ethers_core::types::TxHash;
 use crate::{trie, validate_write_permission};
 use parity_scale_codec::{Decode, Encode};
 use primitive_types::H256;
 use vemodel::{args::*, crypto::*, *};
 use vrs_core_sdk::{get, init, post, set_timer, storage, timer, tss};
-use crate::agent::{bsc, HttpCallType, PENDING_ISSUE_KEY, trace};
-use crate::agent::bsc::initiate_query_bsc_transaction;
+use vemodel::CommunityStatus::{PendingCreation, TokenIssued};
+use crate::agent::{bsc, HttpCallType, PENDING_ISSUE_KEY, trace, WAITING_ISSUE_KEY};
+use crate::agent::bsc::{initiate_query_bsc_transaction, issuse_token};
 
 type SignedArgs<T> = Args<T, EcdsaSignature>;
 
@@ -50,7 +50,6 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
         llm_key,
     } = payload;
     let token_info = TokenMetadata {
-        name:"AI".to_string(),//TODO
         symbol: token.symbol,
         total_issuance: token.total_issuance,
         decimals: token.decimals,
@@ -86,6 +85,7 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
 #[post]
 pub fn activate_community(arg: ActivateCommunityArg) -> Result<(), String> {
     let ActivateCommunityArg { community, tx } = arg;
+    vrs_core_sdk::println!(" activ>>>>>>>>>>>>>>>>>. {}, {}",&community, &tx );
     let id = crate::name_to_community_id(&community).ok_or("Invalid name".to_string())?;
     let key = trie::to_community_key(id);
     let community = crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
@@ -346,27 +346,70 @@ fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u64), Str
 
 #[init]
 pub fn init() {
-    vrs_core_sdk::println!("call init>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-  //  set_timer!(Duration::from_secs(5), query_bsc_gas_price);
+    set_timer!(Duration::from_secs(5), query_bsc_gas_price);
+    set_timer!(Duration::from_secs(3), fetch_token_conctact_addr);
+    set_timer!(Duration::from_secs(2), issue_waiting_community);
 }
 
 #[timer]
 pub fn query_bsc_gas_price() {
     vrs_core_sdk::println!("start to query bas gasprice");
-/*    let id = bsc::query_gas_price().expect("query price error");
-    crate::agent::trace(id, HttpCallType::QueryBscGasPrice).map_err(|e| e.to_string()).expect("query price error");*/
-    set_timer!(std::time::Duration::from_secs(10), query_bsc_gas_price);
+    let id = bsc::query_gas_price().expect("query price error");
+    crate::agent::trace(id, HttpCallType::QueryBscGasPrice).map_err(|e| e.to_string()).expect("query price error");
+    set_timer!(std::time::Duration::from_secs(30), query_bsc_gas_price);
 }
 
 #[timer]
 pub fn fetch_token_conctact_addr() {
     let pending_issues: Result<Option<Vec<(CommunityId, H256)>>, String> = crate::find(PENDING_ISSUE_KEY.as_bytes());
+
     if let Ok(Some(v)) = pending_issues {
+        let mut failed_v = vec![];
         for (community_id, tx_hash) in v {
+            let key = crate::trie::to_community_key(community_id);
+            let Ok(Some(mut community)) =
+                crate::find::<Community>(&key) else {
+                continue;
+            };
+            if let TokenIssued(tx) = community.status {
+                failed_v.push((community_id, tx_hash));
+            }
             let tx_hash = format!("0x{}", hex::encode(tx_hash.0.as_slice()));
             if let Ok(id) = initiate_query_bsc_transaction(tx_hash.as_str()) {
                 trace(id, HttpCallType::QueryIssueResult(community_id));
             }
+            crate::save(PENDING_ISSUE_KEY.as_bytes(), &failed_v);
         }
     }
+    set_timer!(Duration::from_secs(20), fetch_token_conctact_addr);
+}
+
+#[timer]
+pub fn issue_waiting_community() {
+    let mut waiting: Result<Option<Vec<CommunityId>>, String> = crate::find(WAITING_ISSUE_KEY.as_bytes());
+    if let Ok(Some(v)) = waiting {
+        let mut failed_v = vec![];
+        for community_id in v {
+            let key = crate::trie::to_community_key(community_id);
+            let Ok(Some(mut community)) =
+                crate::find::<Community>(&key) else {
+                continue;
+            };
+            if community.status == PendingCreation {
+                failed_v.push(community_id);
+            }
+             let issue_result = issuse_token(&community, &community_id);
+             if issue_result.is_err() {
+                 vrs_core_sdk::println!("failed to send issue token: {}", issue_result.err().unwrap());
+                 community.status = CommunityStatus::CreateFailed(
+                 "issue token error".to_string(),
+                 );
+                 failed_v.push(community_id);
+             }else {
+                 vrs_core_sdk::println!("send issue tx succes: {}", community_id);
+             }
+        }
+        crate::save(WAITING_ISSUE_KEY.as_bytes(), &failed_v);
+    }
+    set_timer!(Duration::from_secs(20), issue_waiting_community);
 }

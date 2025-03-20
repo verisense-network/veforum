@@ -34,13 +34,14 @@ pub enum Event {
     CommentDeleted(ContentId),
 }
 
-#[derive(Debug, Decode, Encode, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Debug, Decode, Clone, Encode, Deserialize, Serialize, Eq, PartialEq)]
 pub enum CommunityStatus {
     PendingCreation,
     WaitingTx(u128),
     CreateFailed(String),
     Active,
     Frozen(u64),
+    TokenIssued(String),
 }
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
@@ -272,7 +273,7 @@ impl Account {
 
 #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
 pub struct TokenMetadata {
-    pub name: String,
+  //  pub name: String,
     pub symbol: String,
     pub total_issuance: u64,
     pub decimals: u8,

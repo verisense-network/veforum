@@ -1,6 +1,7 @@
 mod agent;
 mod nucleus;
 mod trie;
+pub mod eth_types;
 
 use sha2::{Digest, Sha256};
 use vemodel::{Account, AccountData, AccountId, CommunityId, ContentId, Event, EventId, LlmVendor};
