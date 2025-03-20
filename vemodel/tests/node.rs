@@ -1,9 +1,11 @@
-use js_sys::JSON;
-use serde_json::{json, Value::Null};
 use vemodel::{args::*, *};
-use wasm_bindgen::prelude::*;
+
+#[cfg(feature = "wasm-bind")]
+use js_sys::JSON;
+#[cfg(feature = "wasm-bind")]
 use wasm_bindgen_test::*;
 
+#[cfg(feature = "wasm-bind")]
 #[cfg_attr(feature = "wasm-bind", wasm_bindgen_test)]
 pub fn encode_create_community_arg_test() {
     let json_str = r#"{

@@ -2,7 +2,10 @@ use args::CreateCommunityArg;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+
+#[cfg(feature = "wasm-bind")]
 use ts_rs::TS;
+#[cfg(feature = "wasm-bind")]
 use wasm_bindgen::prelude::*;
 
 pub type CommunityId = u32;
@@ -94,6 +97,7 @@ impl Community {
     }
 }
 
+#[cfg(feature = "wasm-bind")]
 #[cfg_attr(feature = "wasm-bind", wasm_bindgen(js_name = encodeCreateCommunityArg))]
 pub fn encode_create_community_arg(community_js: JsValue) -> Result<Vec<u8>, JsValue> {
     let community: CreateCommunityArg = serde_wasm_bindgen::from_value(community_js)
@@ -101,6 +105,7 @@ pub fn encode_create_community_arg(community_js: JsValue) -> Result<Vec<u8>, JsV
     Ok(community.encode())
 }
 
+#[cfg(feature = "wasm-bind")]
 #[cfg_attr(feature = "wasm-bind", wasm_bindgen(js_name = decodeCreateCommunityArg))]
 pub fn decode_create_community_arg(data: Vec<u8>) -> Result<JsValue, JsValue> {
     let community = CreateCommunityArg::decode(&mut &data[..])
