@@ -15,7 +15,7 @@ use vrs_core_sdk::tss::CryptoType;
 use vemodel::{AccountId, Community, CommunityId, TokenMetadata};
 
 use crate::agent::{bsc, GASPRICE_STORAGE_KEY, HttpCallType, trace};
-use crate::agent::contract::{ABI, BYTECODE};
+use crate::agent::contract::{BYTECODE};
 use crate::eth_types::{Address, U64, U256, TxHash};
 use crate::eth_types::bytes::Bytes;
 use crate::eth_types::signature::Signature;
@@ -182,15 +182,17 @@ pub fn on_check_issue_result(response: CallResult<HttpResponse>,) -> Result<Opti
     }
     Ok(None)
 }
+
 pub fn issuse_token(community: &Community, community_id: &CommunityId) -> Result<(), String> {
     let contract_bytecode = hex::decode(BYTECODE.trim_start_matches("0x")).expect("invalid bytecode");
-    let contract_abi: Contract = serde_json::from_str(ABI).expect("invalid abi");
     let token = community.token_info.clone();
     let constructor_args = ethabi::encode(&[
-        Token::String(token.symbol.clone()),
-        Token::String(token.symbol.clone()),
-        Token::Uint(token.decimals.into()),
-        Token::Uint(token.total_issuance.into()),
+            Token::String(token.symbol.clone()),
+            Token::String(token.symbol.clone()),
+            Token::Uint(token.decimals.into()),
+            Token::Uint(token.total_issuance.into()),
+            Token::Bool(true),
+            Token::Address(Address::zero()),
     ]);
     let full_bytecode = [contract_bytecode, constructor_args].concat();
     let gas_price: Option<u64> = crate::find(GASPRICE_STORAGE_KEY.as_bytes()).unwrap_or_default();
@@ -200,7 +202,7 @@ pub fn issuse_token(community: &Community, community_id: &CommunityId) -> Result
     let tx = TransactionRequest {
         from: Some(addr),
         to: None,
-        gas: Some(U256::from(1000000)),
+        gas: Some(U256::from(3000000)),
         gas_price,
         value: None,
         data: Some(Bytes::from(full_bytecode)),

@@ -346,6 +346,8 @@ fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u64), Str
 
 #[init]
 pub fn init() {
+    crate::save::<Vec<(CommunityId, H256)>>(PENDING_ISSUE_KEY.as_bytes(), &vec![]);
+    crate::save::<Vec<CommunityId>>(WAITING_ISSUE_KEY.as_bytes(), &vec![]);
     set_timer!(Duration::from_secs(5), query_bsc_gas_price);
     set_timer!(Duration::from_secs(3), fetch_token_conctact_addr);
     set_timer!(Duration::from_secs(2), issue_waiting_community);
