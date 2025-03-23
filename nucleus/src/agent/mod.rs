@@ -296,15 +296,18 @@ fn untrace(
             match on_check_issue_result(response) {
                 Ok(r) => {
                     match r {
-                        None => {
+                        (None, None) => {
                             vrs_core_sdk::println!("untrace query issue result is null");
                         }
-                        Some(s) => {
+                        (Some(s), token_addr) => {
                             let key = crate::trie::to_community_key(community_id);
                             let mut community =
                                 crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
                             let contruct_addr = AccountId::from_str(s.as_str())?;
-                            community.token_info.contract = contruct_addr;
+                            community.agent_contract = Some(contruct_addr);
+                            if community.token_info.new_issue {
+                                community.token_info.contract = token_addr.map(|c|AccountId::from_str(c.as_str()).unwrap_or(H160([0u8;20]))).unwrap_or(H160([0u8;20]));
+                            }
                             storage::put(&crate::trie::to_balance_key(community_id, community.agent_pubkey),
                               community.token_info.total_issuance.encode(),
                             )
@@ -314,6 +317,7 @@ fn untrace(
                             crate::save(&key, &community)?;
                             crate::save_event(Event::CommunityUpdated(community.id()))?;
                         }
+                        _ => {}
                     }
                 }
                 Err(e) => {

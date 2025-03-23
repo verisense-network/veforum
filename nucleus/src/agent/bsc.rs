@@ -166,18 +166,19 @@ pub(crate) fn on_checking_bnb_transfer(
     Ok(None)
 }
 
-pub fn on_check_issue_result(response: CallResult<HttpResponse>,) -> Result<Option<String>, Box<dyn std::error::Error>>{
+pub fn on_check_issue_result(response: CallResult<HttpResponse>,) -> Result<(Option<String>, Option<String>), Box<dyn std::error::Error>>{
     let r = response.map_err(|e|e.to_string())?;
     let response: RpcResponse<ResultData> = serde_json::from_slice(&r.body)
         .map_err(|e| format!("unable to deserialize body from BSC rpc: {:?}", e))?;
     vrs_core_sdk::println!("resp: {:?}",serde_json::to_string(&response));
     if let Some(result_data) = response.result {
-        let receipt = result_data.receipt;
-        if let Some(v) = receipt.logs.first() {
-            return Ok(Some(v.address.clone()));
-        }
+        let logs = result_data.receipt.logs;
+
+        let first = logs.get(0).map(|l|l.address.clone());
+        let second = logs.get(1).map(|l|l.address.clone());
+        return Ok((first, second));
     }
-    Ok(None)
+    Ok((None, None))
 }
 
 pub fn issuse_token(community: &Community, community_id: &CommunityId) -> Result<(), String> {

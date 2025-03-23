@@ -53,6 +53,7 @@ pub struct Community {
     pub slug: String,
     pub description: String,
     pub token_info: TokenMetadata,
+    pub agent_contract: Option<AccountId>,
     pub prompt: String,
     pub creator: AccountId,
     pub agent_pubkey: AccountId,
@@ -277,6 +278,7 @@ pub struct TokenMetadata {
     pub symbol: String,
     pub total_issuance: u64,
     pub decimals: u8,
+    pub new_issue: bool,
     pub contract: AccountId,
     pub image: Option<String>,
 }

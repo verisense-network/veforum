@@ -54,6 +54,7 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
         total_issuance: token.total_issuance,
         decimals: token.decimals,
         contract: H160([0u8; 20]),
+        new_issue: token.new_issue,
         image: token.image,
     };
     let key_id = id.to_be_bytes();
@@ -68,6 +69,7 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
         logo,
         slug,
         token_info,
+        agent_contract: None,
         creator: signer,
         description,
         prompt: prompt.clone(),
@@ -382,6 +384,7 @@ pub fn fetch_token_conctact_addr() {
     }
     set_timer!(Duration::from_secs(20), fetch_token_conctact_addr).expect("set timer failed");
 }
+
 /*
 #[timer]
 pub fn issue_waiting_community() {
