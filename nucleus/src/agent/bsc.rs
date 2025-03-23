@@ -1,10 +1,7 @@
 //! generate by OpenAI
 use std::collections::BTreeMap;
-use std::fs;
-use std::path::Path;
-use std::str::FromStr;
 
-use ethabi::{Contract, Token};
+use ethabi::{Token};
 use serde::{Deserialize, Serialize};
 use vrs_core_sdk::{
     CallResult,
@@ -12,9 +9,9 @@ use vrs_core_sdk::{
 };
 use vrs_core_sdk::tss::CryptoType;
 
-use vemodel::{AccountId, Community, CommunityId, TokenMetadata};
+use vemodel::{Community, CommunityId};
 
-use crate::agent::{bsc, GASPRICE_STORAGE_KEY, HttpCallType, trace};
+use crate::agent::{GASPRICE_STORAGE_KEY, HttpCallType, trace};
 use crate::agent::contract::{BYTECODE};
 use crate::eth_types::{Address, U64, U256, TxHash};
 use crate::eth_types::bytes::Bytes;
@@ -202,7 +199,7 @@ pub fn issuse_token(community: &Community, community_id: &CommunityId) -> Result
     let tx = TransactionRequest {
         from: Some(addr),
         to: None,
-        gas: Some(U256::from(3000000)),
+        gas: Some(U256::from(2000000)),
         gas_price,
         value: None,
         data: Some(Bytes::from(full_bytecode)),

@@ -1,7 +1,5 @@
 use crate::eth_types::{H256, U256, U64};
-use rlp::Decodable;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use crate::eth_types::Address;
 use crate::eth_types::bytes::Bytes;
 use crate::eth_types::ens::NameOrAddress;
@@ -209,13 +207,11 @@ impl TypedTransaction {
     pub fn as_legacy_ref(&self) -> Option<&TransactionRequest> {
         match self {
             Legacy(tx) => Some(tx),
-            _ => None,
         }
     }
     pub fn as_legacy_mut(&mut self) -> Option<&mut TransactionRequest> {
         match self {
             Legacy(tx) => Some(tx),
-            _ => None,
         }
     }
 }

@@ -1,6 +1,7 @@
 pub(crate) mod bsc;
 pub(crate) mod openai;
 pub mod contract;
+pub mod rewards;
 // pub(crate) mod solana;
 
 use std::str::FromStr;
@@ -11,15 +12,14 @@ use vemodel::*;
 use vrs_core_sdk::{
     callback, codec::*, error::RuntimeError, http::*, set_timer, storage, timer, CallResult,
 };
-use vemodel::CommunityStatus::{PendingCreation, TokenIssued, WaitingTx};
-use crate::agent::bsc::{check_gas_price, issuse_token, on_check_issue_result, TransactionDetails, untrace_issue_tx};
+use vemodel::CommunityStatus::{TokenIssued, WaitingTx};
+use crate::agent::bsc::{check_gas_price, issuse_token, on_check_issue_result, untrace_issue_tx};
 use crate::trie::to_community_key;
 
 pub const OPENAI: [u8; 4] = *b"opai";
 pub const DEEPSEEK: [u8; 4] = *b"dpsk";
 pub const GASPRICE_STORAGE_KEY: &str = "gas_price";
 pub const PENDING_ISSUE_KEY: &str = "pending_issue";
-pub const WAITING_ISSUE_KEY: &str = "waitting_issue";
 
 pub const DEEPSEEK_API_HOST: &'static str = "https://api.deepseek.ai";
 
@@ -107,7 +107,7 @@ fn untrace(
         HttpCallType::CheckingTx(community_id) => {
 
             let key = crate::trie::to_community_key(community_id);
-            let mut community =
+            let community =
                 crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
             let agent_addr = community.agent_pubkey.to_string();
             match bsc::on_checking_bnb_transfer(&agent_addr, response)
@@ -115,16 +115,15 @@ fn untrace(
                 .inspect_err(|e| println!("failed to resolve solana RPC response, {:?}", e))
             {
                 Ok(Some(tx)) => {
-
                     match community.status.clone() {
                         WaitingTx(min_fee) => {
                             if tx.amount_received >= min_fee {
-                                let mut v: Vec<CommunityId> = crate::find(WAITING_ISSUE_KEY.as_bytes()).unwrap_or_default().unwrap_or_default();
-                                v.push(community.id());
-                                crate::save(WAITING_ISSUE_KEY.as_bytes(), &v);
-                                community.status = PendingCreation;
-                                crate::save_event(Event::CommunityUpdated(community.id()))?;
-                                crate::save(&key, &community)?;
+                                let issue_result = issuse_token(&community, &community_id);
+                                if issue_result.is_err() {
+                                    vrs_core_sdk::println!("failed to send issue token: {}", issue_result.err().unwrap());
+                                }else {
+                                    vrs_core_sdk::println!("send issue tx succes: {}", community_id);
+                                }
                             }
 
                         }
@@ -133,13 +132,9 @@ fn untrace(
 
                 }
                 Ok(None) => {
-             /*       community.status =
-                        CommunityStatus::CreateFailed("No transfer found".to_string());*/
                 }
                 Err(_) => {
-             /*       community.status = CommunityStatus::CreateFailed(
-                        "Failed to resolve the tx from BSC RPC".to_string(),
-                    );*/
+
                 }
             }
         }
@@ -281,7 +276,7 @@ fn untrace(
                         Some(tx) => {
                             let mut v: Vec<(CommunityId, H256)> = crate::find(PENDING_ISSUE_KEY.as_bytes()).unwrap_or_default().unwrap_or_default();
                             v.push((community, tx));
-                            crate::save(PENDING_ISSUE_KEY.as_bytes(), &v);
+                            let _ = crate::save(PENDING_ISSUE_KEY.as_bytes(), &v);
                             let key = to_community_key(community);
                             let mut communityo =
                                 crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
@@ -448,7 +443,7 @@ pub(crate) fn check_transfering(community: &Community, tx: String) -> Result<(),
             let mut v: Vec<(CommunityId, H256)> = crate::find(PENDING_ISSUE_KEY.as_bytes()).unwrap_or_default().unwrap_or_default();
             let tx = H256::from_str(issue_tx.trim_start_matches("0x")).unwrap();
             v.push((community.id(), tx));
-            crate::save(PENDING_ISSUE_KEY.as_bytes(), &v);
+            let _ = crate::save(PENDING_ISSUE_KEY.as_bytes(), &v);
             Ok(())
         },
         CommunityStatus::WaitingTx(_)

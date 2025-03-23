@@ -432,6 +432,8 @@ pub mod args {
         pub symbol: String,
         pub total_issuance: u64,
         pub decimals: u8,
+        pub new_issue: bool,
+        pub contract: Option<String>,
         pub image: Option<String>,
     }
 

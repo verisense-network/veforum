@@ -4,9 +4,9 @@ use parity_scale_codec::{Decode, Encode};
 use primitive_types::H256;
 use vemodel::{args::*, crypto::*, *};
 use vrs_core_sdk::{get, init, post, set_timer, storage, timer, tss};
-use vemodel::CommunityStatus::{PendingCreation, TokenIssued};
-use crate::agent::{bsc, HttpCallType, PENDING_ISSUE_KEY, trace, WAITING_ISSUE_KEY};
-use crate::agent::bsc::{initiate_query_bsc_transaction, issuse_token};
+use vemodel::CommunityStatus::{TokenIssued};
+use crate::agent::{bsc, HttpCallType, PENDING_ISSUE_KEY, trace};
+use crate::agent::bsc::{initiate_query_bsc_transaction};
 
 type SignedArgs<T> = Args<T, EcdsaSignature>;
 
@@ -346,11 +346,8 @@ fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u64), Str
 
 #[init]
 pub fn init() {
-    crate::save::<Vec<(CommunityId, H256)>>(PENDING_ISSUE_KEY.as_bytes(), &vec![]);
-    crate::save::<Vec<CommunityId>>(WAITING_ISSUE_KEY.as_bytes(), &vec![]);
-    set_timer!(Duration::from_secs(5), query_bsc_gas_price);
-    set_timer!(Duration::from_secs(3), fetch_token_conctact_addr);
-    set_timer!(Duration::from_secs(2), issue_waiting_community);
+    set_timer!(Duration::from_secs(5), query_bsc_gas_price).expect("set timer failed");
+    set_timer!(Duration::from_secs(3), fetch_token_conctact_addr).expect("set timer failed");
 }
 
 #[timer]
@@ -358,7 +355,7 @@ pub fn query_bsc_gas_price() {
     vrs_core_sdk::println!("start to query bas gasprice");
     let id = bsc::query_gas_price().expect("query price error");
     crate::agent::trace(id, HttpCallType::QueryBscGasPrice).map_err(|e| e.to_string()).expect("query price error");
-    set_timer!(std::time::Duration::from_secs(30), query_bsc_gas_price);
+    set_timer!(std::time::Duration::from_secs(30), query_bsc_gas_price).expect("set timer failed");
 }
 
 #[timer]
@@ -369,23 +366,23 @@ pub fn fetch_token_conctact_addr() {
         let mut failed_v = vec![];
         for (community_id, tx_hash) in v {
             let key = crate::trie::to_community_key(community_id);
-            let Ok(Some(mut community)) =
+            let Ok(Some(community)) =
                 crate::find::<Community>(&key) else {
                 continue;
             };
-            if let TokenIssued(tx) = community.status {
+            if let TokenIssued(_tx) = community.status {
                 failed_v.push((community_id, tx_hash));
             }
             let tx_hash = format!("0x{}", hex::encode(tx_hash.0.as_slice()));
             if let Ok(id) = initiate_query_bsc_transaction(tx_hash.as_str()) {
-                trace(id, HttpCallType::QueryIssueResult(community_id));
+                let _ = trace(id, HttpCallType::QueryIssueResult(community_id));
             }
-            crate::save(PENDING_ISSUE_KEY.as_bytes(), &failed_v);
+            crate::save(PENDING_ISSUE_KEY.as_bytes(), &failed_v).expect("save pending key failed");
         }
     }
-    set_timer!(Duration::from_secs(20), fetch_token_conctact_addr);
+    set_timer!(Duration::from_secs(20), fetch_token_conctact_addr).expect("set timer failed");
 }
-
+/*
 #[timer]
 pub fn issue_waiting_community() {
     let mut waiting: Result<Option<Vec<CommunityId>>, String> = crate::find(WAITING_ISSUE_KEY.as_bytes());
@@ -411,7 +408,7 @@ pub fn issue_waiting_community() {
                  vrs_core_sdk::println!("send issue tx succes: {}", community_id);
              }
         }
-        crate::save(WAITING_ISSUE_KEY.as_bytes(), &failed_v);
+        crate::save(WAITING_ISSUE_KEY.as_bytes(), &failed_v).expect("save waitting key failed");
     }
-    set_timer!(Duration::from_secs(20), issue_waiting_community);
-}
+    let _ = set_timer!(Duration::from_secs(20), issue_waiting_community);
+}*/

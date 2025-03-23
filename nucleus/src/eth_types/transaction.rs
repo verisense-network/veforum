@@ -1,8 +1,7 @@
 
 
-use rlp::{Decodable, RlpStream};
+use rlp::{RlpStream};
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 use crate::eth_types::{Address, U256, U64, H256};
 use crate::eth_types::bytes::Bytes;
 use crate::eth_types::ens::NameOrAddress;
