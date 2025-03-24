@@ -303,6 +303,11 @@ pub fn get_account_info(account_id: AccountId) -> Result<Account, String> {
 }
 
 #[get]
+pub fn get_reward_payloads(account_id: AccountId) -> Vec<RewardPayload> {
+    crate::get_rewards(account_id)
+}
+
+#[get]
 pub fn get_accounts(account_ids: Vec<AccountId>) -> Result<Vec<Account>, String> {
     let mut r = vec![];
     for account_id in account_ids {

@@ -5,6 +5,7 @@ mod nucleus;
 mod trie;
 pub mod eth_types;
 
+use std::mem::take;
 use sha2::{Digest, Sha256};
 use vemodel::{Account, AccountData, AccountId, CommunityId, ContentId, Event, EventId, LlmVendor, RewardId, RewardPayload};
 use vrs_core_sdk::{
@@ -130,6 +131,12 @@ pub(crate) fn get_account_info(account_id: AccountId) -> Result<Account, String>
         }
         None => Ok(Account::new(account_id)),
     }
+}
+
+pub(crate) fn get_rewards(account_id: AccountId) -> Vec<RewardPayload>{
+    let key = to_reward_payload_key(account_id);
+    let v: Vec<RewardPayload> = crate::find(key.as_ref()).unwrap_or_default().unwrap_or_default();
+    v
 }
 
 pub(crate) fn get_nonce(account_id: AccountId) -> Result<u64, String> {
