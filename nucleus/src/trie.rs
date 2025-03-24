@@ -76,7 +76,7 @@ pub fn to_account_key(account_id: AccountId) -> [u8; 28] {
         .unwrap()
 }
 
-pub fn to_balance_key(community_id: CommunityId, account_id: AccountId) -> [u8; 28] {
+pub fn to_balance_key(community_id: CommunityId, account_id: AccountId) -> [u8; 32] {
     [
         &BALANCE_KEY_PREFIX.to_be_bytes()[..],
         &account_id.0[..],
@@ -87,7 +87,7 @@ pub fn to_balance_key(community_id: CommunityId, account_id: AccountId) -> [u8; 
     .unwrap()
 }
 
-pub fn to_reward_payload_key(account_id: AccountId) -> [u8;32]{
+pub fn to_reward_payload_key(account_id: AccountId) -> [u8;28]{
     [
         &REWARD_PAYLOAD_PREFIX.to_be_bytes()[..],
         &account_id.0[..],
