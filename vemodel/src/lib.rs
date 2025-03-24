@@ -518,5 +518,5 @@ pub mod args {
 pub struct RewardPayload {
     pub payload: Vec<u8>,
     pub signature: Vec<u8>,
-    pub agent_contrct: AccountId,
+    pub agent_contract: AccountId,
 }
