@@ -13,7 +13,7 @@ pub fn generate_rewards(to: Address, seq: u64, amt: u128,  community: &Community
     let mut prefixed_message = prefix.as_bytes().to_vec();
     prefixed_message.extend_from_slice(reward_data.as_slice());
     let message_hash = keccak256(&prefixed_message);
-    match tss_sign(CryptoType::Secp256k1, community.to_be_bytes(), message_hash) {
+    match tss_sign(CryptoType::EcdsaSecp256k1, community.to_be_bytes(), message_hash) {
         Ok(s) => {
             Some((Bytes::from(reward_data.to_vec()), Bytes::from(s)))
         }
