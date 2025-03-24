@@ -185,7 +185,7 @@ pub fn issuse_token(community: &Community, community_id: &CommunityId) -> Result
     let contract_bytecode = hex::decode(BYTECODE.trim_start_matches("0x")).expect("invalid bytecode");
     let token = community.token_info.clone();
     let constructor_args = ethabi::encode(&[
-            Token::String(token.symbol.clone()),
+            Token::String(token.name.clone()),
             Token::String(token.symbol.clone()),
             Token::Uint(token.decimals.into()),
             Token::Uint(token.total_issuance.into()),

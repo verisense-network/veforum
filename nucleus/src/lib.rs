@@ -1,14 +1,19 @@
+extern crate core;
+
 mod agent;
 mod nucleus;
 mod trie;
 pub mod eth_types;
 
 use sha2::{Digest, Sha256};
-use vemodel::{Account, AccountData, AccountId, CommunityId, ContentId, Event, EventId, LlmVendor};
+use vemodel::{Account, AccountData, AccountId, CommunityId, ContentId, Event, EventId, LlmVendor, RewardId, RewardPayload};
 use vrs_core_sdk::{
     codec::{Decode, Encode},
     storage,
 };
+use crate::agent::rewards::generate_rewards;
+use crate::eth_types::Address;
+use crate::trie::to_reward_payload_key;
 
 pub const MIN_ACTIVATE_FEE: u128 = 2_000_000_000_000_000;
 
@@ -157,13 +162,15 @@ pub(crate) fn transfer(
     to: AccountId,
     amount: u64,
 ) -> Result<(), String> {
-    let from_key = trie::to_balance_key(community_id, from);
+
+
+    let from_key = trie::to_balance_key(community_id.clone(), from);
     let from_balance = storage::get(&from_key)
         .map_err(|e| e.to_string())?
         .map(|d| u64::decode(&mut &d[..]).map_err(|e| e.to_string()))
         .transpose()?
         .unwrap_or(0);
-    let to_key = trie::to_balance_key(community_id, to);
+    let to_key = trie::to_balance_key(community_id.clone(), to);
     let to_balance = storage::get(&to_key)
         .map_err(|e| e.to_string())?
         .map(|d| u64::decode(&mut &d[..]).map_err(|e| e.to_string()))
@@ -175,6 +182,15 @@ pub(crate) fn transfer(
     // TODO we need transaction
     storage::put(&from_key, (from_balance - amount).encode()).map_err(|e| e.to_string())?;
     storage::put(&to_key, (to_balance + amount).encode()).map_err(|e| e.to_string())?;
+    let community_key = trie::to_community_key(community_id);
+    let community = crate::find(community_key.as_slice()).unwrap().unwrap();
+    if let Some(reward) = generate_rewards(Address::from(to.0.clone()), amount as u128, &community) {
+        let key = to_reward_payload_key(to.clone());
+        let mut v: Vec<RewardPayload> = crate::find(key.as_ref()).unwrap_or_default().unwrap_or_default();
+        v.push(reward);
+        crate::save(key.as_slice(), &v);
+    }
+
     Ok(())
 }
 

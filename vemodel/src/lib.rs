@@ -4,6 +4,8 @@ use sha2::{Digest, Sha256};
 
 pub type CommunityId = u32;
 pub type EventId = u64;
+pub type RewardId = u64;
+
 pub type ContentId = u128;
 
 pub fn is_comment(content_id: ContentId) -> bool {
@@ -274,7 +276,7 @@ impl Account {
 
 #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
 pub struct TokenMetadata {
-  //  pub name: String,
+    pub name: String,
     pub symbol: String,
     pub total_issuance: u64,
     pub decimals: u8,
@@ -431,6 +433,7 @@ pub mod args {
 
     #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
     pub struct TokenMetadataArg {
+        pub name: String,
         pub symbol: String,
         pub total_issuance: u64,
         pub decimals: u8,
@@ -500,4 +503,11 @@ pub mod args {
             Ok(())
         }
     }
+}
+
+#[derive(Debug, Clone, Decode, Encode)]
+pub struct RewardPayload {
+    pub payload: Vec<u8>,
+    pub signature: Vec<u8>,
+    pub agent_contrct: AccountId,
 }

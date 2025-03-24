@@ -7,6 +7,7 @@ use vrs_core_sdk::{get, init, post, set_timer, storage, timer, tss};
 use vemodel::CommunityStatus::{TokenIssued};
 use crate::agent::{bsc, HttpCallType, PENDING_ISSUE_KEY, trace};
 use crate::agent::bsc::{initiate_query_bsc_transaction};
+use std::str::FromStr;
 
 type SignedArgs<T> = Args<T, EcdsaSignature>;
 
@@ -49,11 +50,21 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
         llm_api_host,
         llm_key,
     } = payload;
+    let token_contruct = match token.contract.clone() {
+        Some(s) => {
+            AccountId::from_str(s.as_str()).map_err(|e|e.to_string())?
+        },
+        None => H160([0u8;20])
+    };
+    if !token.new_issue  &&  token.contract.is_none(){
+        return Err("the token contract must set if using a exist token contract".to_string());
+    }
     let token_info = TokenMetadata {
+        name: token.name,
         symbol: token.symbol,
         total_issuance: token.total_issuance,
         decimals: token.decimals,
-        contract: H160([0u8; 20]),
+        contract: token_contruct,
         new_issue: token.new_issue,
         image: token.image,
     };
