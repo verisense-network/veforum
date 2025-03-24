@@ -4,9 +4,10 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 #[cfg(feature = "wasm-bind")]
-use ts_rs::TS;
+use tsify::Tsify;
 #[cfg(feature = "wasm-bind")]
 use wasm_bindgen::prelude::*;
+use wasm_bindgen_test::__rt::wasm_bindgen::prelude::wasm_bindgen;
 
 pub type CommunityId = u32;
 pub type EventId = u64;
@@ -25,6 +26,8 @@ pub fn get_belongs_to(content_id: ContentId) -> CommunityId {
 }
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize, Clone, Copy)]
+#[cfg_attr(feature = "wasm-bind", derive(Tsify))]
+#[cfg_attr(feature = "wasm-bind", tsify(into_wasm_abi, from_wasm_abi))]
 pub enum Event {
     #[codec(index = 0)]
     CommunityCreated(CommunityId),
@@ -41,8 +44,8 @@ pub enum Event {
 }
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize, Eq, PartialEq)]
-#[cfg_attr(feature = "wasm-bind", derive(TS))]
-#[cfg_attr(feature = "wasm-bind", ts(export))]
+#[cfg_attr(feature = "wasm-bind", derive(Tsify))]
+#[cfg_attr(feature = "wasm-bind", tsify(into_wasm_abi, from_wasm_abi))]
 pub enum CommunityStatus {
     PendingCreation,
     WaitingTx(u128),
@@ -52,8 +55,8 @@ pub enum CommunityStatus {
 }
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-#[cfg_attr(feature = "wasm-bind", derive(TS))]
-#[cfg_attr(feature = "wasm-bind", ts(export))]
+#[cfg_attr(feature = "wasm-bind", derive(Tsify))]
+#[cfg_attr(feature = "wasm-bind", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Community {
     pub id: String,
     pub private: bool,
@@ -98,6 +101,20 @@ impl Community {
 }
 
 #[cfg(feature = "wasm-bind")]
+fn encode_and_serialize<T: parity_scale_codec::Encode + serde::de::DeserializeOwned>(
+    payload: JsValue,
+    type_name: &str,
+) -> Result<Vec<u8>, JsValue> {
+    let encoded: T = serde_wasm_bindgen::from_value(payload).map_err(|e| {
+        JsValue::from_str(&format!(
+            "Failed to deserialize {} data: {:?}",
+            type_name, e
+        ))
+    })?;
+    Ok(encoded.encode())
+}
+
+#[cfg(feature = "wasm-bind")]
 #[cfg_attr(feature = "wasm-bind", wasm_bindgen(js_name = codecEncode))]
 pub fn codec_encode(codec_type: JsValue, payload: JsValue) -> Result<Vec<u8>, JsValue> {
     let codec_type: String = serde_wasm_bindgen::from_value(codec_type)
@@ -105,48 +122,26 @@ pub fn codec_encode(codec_type: JsValue, payload: JsValue) -> Result<Vec<u8>, Js
 
     match codec_type.as_str() {
         "CreateCommunityArg" => {
-            let community: CreateCommunityArg =
-                serde_wasm_bindgen::from_value(payload).map_err(|e| {
-                    JsValue::from_str(&format!(
-                        "Failed to deserialize CreateCommunityArg: {:?}",
-                        e
-                    ))
-                })?;
-            Ok(community.encode())
+            encode_and_serialize::<CreateCommunityArg>(payload, "CreateCommunityArg")
         }
-        "PostThreadArg" => {
-            let thread: PostThreadArg = serde_wasm_bindgen::from_value(payload).map_err(|e| {
-                JsValue::from_str(&format!("Failed to deserialize PostThreadArg: {:?}", e))
-            })?;
-            Ok(thread.encode())
-        }
-        "PostCommentArg" => {
-            let comment: PostCommentArg = serde_wasm_bindgen::from_value(payload).map_err(|e| {
-                JsValue::from_str(&format!("Failed to deserialize PostCommentArg: {:?}", e))
-            })?;
-            Ok(comment.encode())
-        }
-        "AccountId" => {
-            let account_id: AccountId = serde_wasm_bindgen::from_value(payload).map_err(|e| {
-                JsValue::from_str(&format!("Failed to deserialize AccountId: {:?}", e))
-            })?;
-            Ok(account_id.encode())
-        }
-        "CommunityId" => {
-            let community_id: CommunityId =
-                serde_wasm_bindgen::from_value(payload).map_err(|e| {
-                    JsValue::from_str(&format!("Failed to deserialize CommunityId: {:?}", e))
-                })?;
-            Ok(community_id.encode())
-        }
-        "ContentId" => {
-            let content_id: ContentId = serde_wasm_bindgen::from_value(payload).map_err(|e| {
-                JsValue::from_str(&format!("Failed to deserialize ContentId: {:?}", e))
-            })?;
-            Ok(content_id.encode())
-        }
+        "PostThreadArg" => encode_and_serialize::<PostThreadArg>(payload, "PostThreadArg"),
+        "PostCommentArg" => encode_and_serialize::<PostCommentArg>(payload, "PostCommentArg"),
+        "AccountId" => encode_and_serialize::<AccountId>(payload, "AccountId"),
+        "CommunityId" => encode_and_serialize::<CommunityId>(payload, "CommunityId"),
+        "ContentId" => encode_and_serialize::<ContentId>(payload, "ContentId"),
         _ => Err(JsValue::from_str("Invalid arg type")),
     }
+}
+
+#[cfg(feature = "wasm-bind")]
+fn decode_and_serialize<T: parity_scale_codec::Decode + serde::Serialize>(
+    data: &[u8],
+    type_name: &str,
+) -> Result<JsValue, JsValue> {
+    let decoded = T::decode(&mut &data[..])
+        .map_err(|e| JsValue::from_str(&format!("Invalid {} data: {}", type_name, e)))?;
+    serde_wasm_bindgen::to_value(&decoded)
+        .map_err(|e| JsValue::from_str(&format!("Failed to serialize {}: {}", type_name, e)))
 }
 
 #[cfg(feature = "wasm-bind")]
@@ -156,42 +151,22 @@ pub fn codec_decode(codec_type: JsValue, data: Vec<u8>) -> Result<JsValue, JsVal
         .map_err(|e| JsValue::from_str(&format!("Failed to deserialize codec_type: {:?}", e)))?;
     match codec_type.as_str() {
         "CreateCommunityArg" => {
-            let community = CreateCommunityArg::decode(&mut &data[..])
-                .map_err(|e| JsValue::from_str(&format!("Invalid community data: {}", e)))?;
-            serde_wasm_bindgen::to_value(&community)
-                .map_err(|e| JsValue::from_str(&format!("Failed to serialize community: {}", e)))
+            decode_and_serialize::<CreateCommunityArg>(&data, "CreateCommunityArg")
         }
-        "Account" => {
-            let account = Account::decode(&mut &data[..])
-                .map_err(|e| JsValue::from_str(&format!("Invalid account data: {}", e)))?;
-            serde_wasm_bindgen::to_value(&account)
-                .map_err(|e| JsValue::from_str(&format!("Failed to serialize account: {}", e)))
+        "Result<Account, String>" => {
+            decode_and_serialize::<Result<Account, String>>(&data, "Result<Account, String>")
         }
-        "Community" => {
-            let community = Community::decode(&mut &data[..])
-                .map_err(|e| JsValue::from_str(&format!("Invalid community data: {}", e)))?;
-            serde_wasm_bindgen::to_value(&community)
-                .map_err(|e| JsValue::from_str(&format!("Failed to serialize community: {}", e)))
-        }
-        "Thread" => {
-            let thread = Thread::decode(&mut &data[..])
-                .map_err(|e| JsValue::from_str(&format!("Invalid thread data: {}", e)))?;
-            serde_wasm_bindgen::to_value(&thread)
-                .map_err(|e| JsValue::from_str(&format!("Failed to serialize thread: {}", e)))
-        }
-        "Comment" => {
-            let comment = Comment::decode(&mut &data[..])
-                .map_err(|e| JsValue::from_str(&format!("Invalid comment data: {}", e)))?;
-            serde_wasm_bindgen::to_value(&comment)
-                .map_err(|e| JsValue::from_str(&format!("Failed to serialize comment: {}", e)))
-        }
+        "Community" => decode_and_serialize::<Community>(&data, "Community"),
+        "CommunityId" => decode_and_serialize::<CommunityId>(&data, "CommunityId"),
+        "Thread" => decode_and_serialize::<Thread>(&data, "Thread"),
+        "Comment" => decode_and_serialize::<Comment>(&data, "Comment"),
         _ => Err(JsValue::from_str("Invalid arg type")),
     }
 }
 
-#[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-#[cfg_attr(feature = "wasm-bind", derive(TS))]
-#[cfg_attr(feature = "wasm-bind", ts(export))]
+#[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
+#[cfg_attr(feature = "wasm-bind", derive(Tsify))]
+#[cfg_attr(feature = "wasm-bind", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Thread {
     pub id: String,
     pub community_name: String,
@@ -215,9 +190,9 @@ impl Thread {
     }
 }
 
-#[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-#[cfg_attr(feature = "wasm-bind", derive(TS))]
-#[cfg_attr(feature = "wasm-bind", ts(export))]
+#[derive(Debug, Clone, Decode, Encode, Serialize, Deserialize)]
+#[cfg_attr(feature = "wasm-bind", derive(Tsify))]
+#[cfg_attr(feature = "wasm-bind", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct Comment {
     pub id: String,
     pub content: Vec<u8>,
@@ -247,8 +222,8 @@ impl Comment {
 pub type AccountId = H160;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Decode, Encode)]
-#[cfg_attr(feature = "wasm-bind", derive(TS))]
-#[cfg_attr(feature = "wasm-bind", ts(export))]
+#[cfg_attr(feature = "wasm-bind", derive(Tsify))]
+#[cfg_attr(feature = "wasm-bind", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct H160(pub [u8; 20]);
 
 impl H160 {
@@ -379,8 +354,8 @@ impl Account {
 }
 
 #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
-#[cfg_attr(feature = "wasm-bind", derive(TS))]
-#[cfg_attr(feature = "wasm-bind", ts(export))]
+#[cfg_attr(feature = "wasm-bind", derive(Tsify))]
+#[cfg_attr(feature = "wasm-bind", tsify(into_wasm_abi, from_wasm_abi))]
 pub struct TokenMetadata {
     pub symbol: String,
     pub total_issuance: u64,
@@ -390,8 +365,8 @@ pub struct TokenMetadata {
 }
 
 #[derive(Debug, Clone, Decode, Encode, Serialize, Deserialize)]
-#[cfg_attr(feature = "wasm-bind", derive(TS))]
-#[cfg_attr(feature = "wasm-bind", ts(export))]
+#[cfg_attr(feature = "wasm-bind", derive(Tsify))]
+#[cfg_attr(feature = "wasm-bind", tsify(into_wasm_abi, from_wasm_abi))]
 pub enum LlmVendor {
     OpenAI { key: String },
     DeepSeek { key: String, host: String },
@@ -524,8 +499,6 @@ pub mod args {
     }
 
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-    #[cfg_attr(feature = "wasm-bind", derive(TS))]
-    #[cfg_attr(feature = "wasm-bind", ts(export))]
     pub struct CreateCommunityArg {
         pub name: String,
         pub private: bool,
@@ -540,8 +513,6 @@ pub mod args {
     }
 
     #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
-    #[cfg_attr(feature = "wasm-bind", derive(TS))]
-    #[cfg_attr(feature = "wasm-bind", ts(export))]
     pub struct TokenMetadataArg {
         pub symbol: String,
         pub total_issuance: u64,
