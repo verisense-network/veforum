@@ -1,4 +1,4 @@
-use args::CreateCommunityArg;
+use args::*;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -98,20 +98,95 @@ impl Community {
 }
 
 #[cfg(feature = "wasm-bind")]
-#[cfg_attr(feature = "wasm-bind", wasm_bindgen(js_name = encodeCreateCommunityArg))]
-pub fn encode_create_community_arg(community_js: JsValue) -> Result<Vec<u8>, JsValue> {
-    let community: CreateCommunityArg = serde_wasm_bindgen::from_value(community_js)
-        .map_err(|e| JsValue::from_str(&format!("Failed to deserialize community: {}", e)))?;
-    Ok(community.encode())
+#[cfg_attr(feature = "wasm-bind", wasm_bindgen(js_name = codecEncode))]
+pub fn codec_encode(codec_type: JsValue, payload: JsValue) -> Result<Vec<u8>, JsValue> {
+    let codec_type: String = serde_wasm_bindgen::from_value(codec_type)
+        .map_err(|e| JsValue::from_str(&format!("Failed to deserialize codec_type: {:?}", e)))?;
+
+    match codec_type.as_str() {
+        "CreateCommunityArg" => {
+            let community: CreateCommunityArg =
+                serde_wasm_bindgen::from_value(payload).map_err(|e| {
+                    JsValue::from_str(&format!(
+                        "Failed to deserialize CreateCommunityArg: {:?}",
+                        e
+                    ))
+                })?;
+            Ok(community.encode())
+        }
+        "PostThreadArg" => {
+            let thread: PostThreadArg = serde_wasm_bindgen::from_value(payload).map_err(|e| {
+                JsValue::from_str(&format!("Failed to deserialize PostThreadArg: {:?}", e))
+            })?;
+            Ok(thread.encode())
+        }
+        "PostCommentArg" => {
+            let comment: PostCommentArg = serde_wasm_bindgen::from_value(payload).map_err(|e| {
+                JsValue::from_str(&format!("Failed to deserialize PostCommentArg: {:?}", e))
+            })?;
+            Ok(comment.encode())
+        }
+        "AccountId" => {
+            let account_id: AccountId = serde_wasm_bindgen::from_value(payload).map_err(|e| {
+                JsValue::from_str(&format!("Failed to deserialize AccountId: {:?}", e))
+            })?;
+            Ok(account_id.encode())
+        }
+        "CommunityId" => {
+            let community_id: CommunityId =
+                serde_wasm_bindgen::from_value(payload).map_err(|e| {
+                    JsValue::from_str(&format!("Failed to deserialize CommunityId: {:?}", e))
+                })?;
+            Ok(community_id.encode())
+        }
+        "ContentId" => {
+            let content_id: ContentId = serde_wasm_bindgen::from_value(payload).map_err(|e| {
+                JsValue::from_str(&format!("Failed to deserialize ContentId: {:?}", e))
+            })?;
+            Ok(content_id.encode())
+        }
+        _ => Err(JsValue::from_str("Invalid arg type")),
+    }
 }
 
 #[cfg(feature = "wasm-bind")]
-#[cfg_attr(feature = "wasm-bind", wasm_bindgen(js_name = decodeCreateCommunityArg))]
-pub fn decode_create_community_arg(data: Vec<u8>) -> Result<JsValue, JsValue> {
-    let community = CreateCommunityArg::decode(&mut &data[..])
-        .map_err(|e| JsValue::from_str(&format!("Invalid community data: {}", e)))?;
-    serde_wasm_bindgen::to_value(&community)
-        .map_err(|e| JsValue::from_str(&format!("Failed to serialize community: {}", e)))
+#[cfg_attr(feature = "wasm-bind", wasm_bindgen(js_name = codecDecode))]
+pub fn codec_decode(codec_type: JsValue, data: Vec<u8>) -> Result<JsValue, JsValue> {
+    let codec_type: String = serde_wasm_bindgen::from_value(codec_type)
+        .map_err(|e| JsValue::from_str(&format!("Failed to deserialize codec_type: {:?}", e)))?;
+    match codec_type.as_str() {
+        "CreateCommunityArg" => {
+            let community = CreateCommunityArg::decode(&mut &data[..])
+                .map_err(|e| JsValue::from_str(&format!("Invalid community data: {}", e)))?;
+            serde_wasm_bindgen::to_value(&community)
+                .map_err(|e| JsValue::from_str(&format!("Failed to serialize community: {}", e)))
+        }
+        "Account" => {
+            let account = Account::decode(&mut &data[..])
+                .map_err(|e| JsValue::from_str(&format!("Invalid account data: {}", e)))?;
+            serde_wasm_bindgen::to_value(&account)
+                .map_err(|e| JsValue::from_str(&format!("Failed to serialize account: {}", e)))
+        }
+        "Community" => {
+            let community = Community::decode(&mut &data[..])
+                .map_err(|e| JsValue::from_str(&format!("Invalid community data: {}", e)))?;
+            serde_wasm_bindgen::to_value(&community)
+                .map_err(|e| JsValue::from_str(&format!("Failed to serialize community: {}", e)))
+        }
+        "Thread" => {
+            let thread = Thread::decode(&mut &data[..])
+                .map_err(|e| JsValue::from_str(&format!("Invalid thread data: {}", e)))?;
+            serde_wasm_bindgen::to_value(&thread)
+                .map_err(|e| JsValue::from_str(&format!("Failed to serialize thread: {}", e)))
+        }
+        "Comment" => {
+            let comment = Comment::decode(&mut &data[..])
+                .map_err(|e| JsValue::from_str(&format!("Invalid comment data: {}", e)))?;
+            serde_wasm_bindgen::to_value(&comment)
+                .map_err(|e| JsValue::from_str(&format!("Failed to serialize comment: {}", e)))
+        }
+        _ => Err(JsValue::from_str("Invalid arg type")),
+    }
 }
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
