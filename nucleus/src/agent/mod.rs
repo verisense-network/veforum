@@ -55,10 +55,11 @@ pub enum HttpCallType {
     CheckInvocationStatus(ContentId),
     PullingMessage(ContentId),
     SubmittingToolCall(ContentId),
-    CheckingTx(CommunityId),
+    CheckingActivateTx(CommunityId),
     SendIssueTx(CommunityId),
     QueryBscGasPrice,
     QueryIssueResult(CommunityId),
+    CheckingInviteTx(CommunityId, AccountId),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -104,7 +105,7 @@ fn untrace(
 ) -> Result<(), String> {
     storage::del(key).map_err(|e| e.to_string())?;
     match call_type {
-        HttpCallType::CheckingTx(community_id) => {
+        HttpCallType::CheckingActivateTx(community_id) => {
 
             let key = crate::trie::to_community_key(community_id);
             let community =
@@ -325,6 +326,10 @@ fn untrace(
                 }
             }
         }
+        HttpCallType::CheckingInviteTx(community, invitee) => {
+
+
+        }
     }
     Ok(())
 }
@@ -440,7 +445,6 @@ fn call_tool(on: &Community, func: &str, params: &str) -> Result<String, String>
 }
 
 pub(crate) fn check_transfering(community: &Community, tx: String) -> Result<(), String> {
-    vrs_core_sdk::println!("community_status:>>>>>>>>>>>>>>>>>>>> {:?}", &community);
     match community.status.clone() {
         CommunityStatus::PendingCreation|  CommunityStatus::Active => Ok(()),
         TokenIssued(issue_tx) => {
@@ -454,7 +458,7 @@ pub(crate) fn check_transfering(community: &Community, tx: String) -> Result<(),
         | CommunityStatus::Frozen(_)
         | CommunityStatus::CreateFailed(_) => {
             let id = bsc::initiate_query_bsc_transaction(&tx)?;
-            trace(id, HttpCallType::CheckingTx(community.id())).map_err(|e| e.to_string())
+            trace(id, HttpCallType::CheckingActivateTx(community.id())).map_err(|e| e.to_string())
         }
     }
 }

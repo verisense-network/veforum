@@ -241,6 +241,7 @@ impl serde::Serialize for H160 {
 pub struct Account {
     pub nonce: u64,
     pub address: H160,
+    pub max_invite_block: u64,
     pub alias: Option<String>,
     pub last_post_at: i64,
 }
@@ -258,6 +259,7 @@ impl Account {
         Self {
             nonce: 0,
             address,
+            max_invite_block: 0,
             alias: None,
             last_post_at: 0,
         }
@@ -479,6 +481,13 @@ pub mod args {
         pub content: Vec<u8>,
         pub images: Vec<String>,
         pub mention: Vec<AccountId>,
+    }
+
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
+    pub struct InviteUserArgs {
+        pub community: String,
+        pub tx: String,
+        pub invitee: AccountId,
     }
 
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]

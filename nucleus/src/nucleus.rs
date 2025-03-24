@@ -8,6 +8,7 @@ use vemodel::CommunityStatus::{TokenIssued};
 use crate::agent::{bsc, HttpCallType, PENDING_ISSUE_KEY, trace};
 use crate::agent::bsc::{initiate_query_bsc_transaction};
 use std::str::FromStr;
+use crate::trie::to_community_key;
 
 type SignedArgs<T> = Args<T, EcdsaSignature>;
 
@@ -98,7 +99,6 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
 #[post]
 pub fn activate_community(arg: ActivateCommunityArg) -> Result<(), String> {
     let ActivateCommunityArg { community, tx } = arg;
-    vrs_core_sdk::println!(" activ>>>>>>>>>>>>>>>>>. {}, {}",&community, &tx );
     let id = crate::name_to_community_id(&community).ok_or("Invalid name".to_string())?;
     let key = trie::to_community_key(id);
     let community = crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
@@ -107,6 +107,31 @@ pub fn activate_community(arg: ActivateCommunityArg) -> Result<(), String> {
     crate::agent::check_transfering(&community, tx_hash)?;
     Ok(())
 }
+
+
+#[post]
+pub fn invite_user(args: SignedArgs<InviteUserArgs>) -> Result<(), String> {
+    let account = crate::get_account_info(args.signer)?;
+    args.ensure_signed(account.nonce)?;
+    let content = args.payload;
+    let community_id =
+        crate::name_to_community_id(&content.community).ok_or("Invalid community name".to_string())?;
+    let community_key = to_community_key(community_id);
+    let Ok(Some(community)) = crate::find::<Community>(community_key.as_slice()) else {
+        return Err("community not found".to_string());
+    };
+    if !community.private {
+        return Err("community is public, Not need to invite".to_string());
+    }
+    if args.signer != community.creator {
+        return Err("Creator can invite users only".to_string());
+    }
+    let tx_hash = content.tx.trim().to_string();
+    let id = bsc::initiate_query_bsc_transaction(&tx_hash)?;
+    trace(id, HttpCallType::CheckingInviteTx(community.id(), content.invitee)).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 
 #[post]
 pub fn post_thread(args: SignedArgs<PostThreadArg>) -> Result<ContentId, String> {
@@ -224,6 +249,7 @@ pub fn get_community(id: CommunityId) -> Result<Option<Community>, String> {
     community.as_mut().map(|c| c.mask());
     Ok(community)
 }
+
 
 #[get]
 pub fn get_raw_contents(id: ContentId, limit: u32) -> Result<Vec<(ContentId, Vec<u8>)>, String> {
@@ -379,7 +405,6 @@ pub fn query_bsc_gas_price() {
 #[timer]
 pub fn fetch_token_conctact_addr() {
     let pending_issues: Result<Option<Vec<(CommunityId, H256)>>, String> = crate::find(PENDING_ISSUE_KEY.as_bytes());
-
     if let Ok(Some(v)) = pending_issues {
         let mut failed_v = vec![];
         for (community_id, tx_hash) in v {
@@ -400,34 +425,3 @@ pub fn fetch_token_conctact_addr() {
     }
     set_timer!(Duration::from_secs(20), fetch_token_conctact_addr).expect("set timer failed");
 }
-
-/*
-#[timer]
-pub fn issue_waiting_community() {
-    let mut waiting: Result<Option<Vec<CommunityId>>, String> = crate::find(WAITING_ISSUE_KEY.as_bytes());
-    if let Ok(Some(v)) = waiting {
-        let mut failed_v = vec![];
-        for community_id in v {
-            let key = crate::trie::to_community_key(community_id);
-            let Ok(Some(mut community)) =
-                crate::find::<Community>(&key) else {
-                continue;
-            };
-            if community.status == PendingCreation {
-                failed_v.push(community_id);
-            }
-             let issue_result = issuse_token(&community, &community_id);
-             if issue_result.is_err() {
-                 vrs_core_sdk::println!("failed to send issue token: {}", issue_result.err().unwrap());
-                 community.status = CommunityStatus::CreateFailed(
-                 "issue token error".to_string(),
-                 );
-                 failed_v.push(community_id);
-             }else {
-                 vrs_core_sdk::println!("send issue tx succes: {}", community_id);
-             }
-        }
-        crate::save(WAITING_ISSUE_KEY.as_bytes(), &failed_v).expect("save waitting key failed");
-    }
-    let _ = set_timer!(Duration::from_secs(20), issue_waiting_community);
-}*/
