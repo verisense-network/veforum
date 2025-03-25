@@ -1,5 +1,5 @@
 use std::time::Duration;
-use crate::{MIN_ACTIVATE_FEE, MIN_INVITE_FEE, name_to_community_id, trie, validate_write_permission};
+use crate::{find, MIN_ACTIVATE_FEE, MIN_INVITE_FEE, name_to_community_id, trie, validate_write_permission};
 use parity_scale_codec::{Decode, Encode};
 use primitive_types::H256;
 use vemodel::{args::*, crypto::*, *};
@@ -8,7 +8,7 @@ use vemodel::CommunityStatus::{TokenIssued};
 use crate::agent::{bsc, HttpCallType, PENDING_ISSUE_KEY, trace};
 use crate::agent::bsc::{initiate_query_bsc_transaction};
 use std::str::FromStr;
-use crate::trie::to_community_key;
+use crate::trie::{to_community_key, to_permission_key};
 
 type SignedArgs<T> = Args<T, EcdsaSignature>;
 
@@ -114,7 +114,13 @@ pub fn activate_community(arg: ActivateCommunityArg) -> Result<(), String> {
     Ok(())
 }
 
-
+#[get]
+pub fn check_invite(community_id: CommunityId, user: AccountId) -> bool {
+    let key = to_permission_key(community_id, user);
+    if let Ok(Some(p)) = find::<u32>(key.as_ref()) {
+        p > 0
+    }else { false }
+}
 #[post]
 pub fn invite_user(args: SignedArgs<InviteUserArgs>) -> Result<(), String> {
     let account = crate::get_account_info(args.signer)?;
