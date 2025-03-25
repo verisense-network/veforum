@@ -14,8 +14,8 @@ use vrs_core_sdk::{
 };
 use vemodel::CommunityStatus::{TokenIssued, WaitingTx};
 use crate::agent::bsc::{check_gas_price, issuse_token, on_check_issue_result, untrace_issue_tx};
-use crate::MIN_INVITE_FEE;
-use crate::trie::to_community_key;
+use crate::{find, MIN_INVITE_FEE};
+use crate::trie::{to_account_key, to_community_key, to_permission_key};
 
 pub const OPENAI: [u8; 4] = *b"opai";
 pub const DEEPSEEK: [u8; 4] = *b"dpsk";
@@ -337,17 +337,18 @@ fn untrace(
                 .inspect_err(|e| println!("failed to resolve solana RPC response, {:?}", e))
             {
                 Ok(Some(tx)) => {
-
-                    if tx.amount_received >= MIN_INVITE_FEE {
-                        let issue_result = issuse_token(&community, &community_id);
-                        if issue_result.is_err() {
-                            vrs_core_sdk::println!("failed to send issue token: {}", issue_result.err().unwrap());
-                        }else {
-                            vrs_core_sdk::println!("send issue tx succes: {}", community_id);
+                    let sender = AccountId::from_str(tx.sender.as_str())?;
+                    if tx.amount_received >= MIN_INVITE_FEE && sender == community.creator{
+                        let account_key = to_account_key(community.creator);
+                        let mut  account: Account = find(account_key.as_ref())?.ok_or("account not found".to_string())?;
+                        if account.max_invite_block < tx.block_number {
+                            let permission_key = to_permission_key(community_id, invitee);
+                            let _ = crate::save(permission_key.as_ref(), &1u32);
+                            account.max_invite_block = tx.block_number;
+                            let _ = crate::save(account_key.as_ref(), &account);
                         }
                     }
                 }
-
                 _ => {
                 }
             }

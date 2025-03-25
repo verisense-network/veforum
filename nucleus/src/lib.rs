@@ -241,11 +241,7 @@ pub(crate) fn validate_write_permission(
     account_id: AccountId,
 ) -> Result<(), String> {
     let key = trie::to_permission_key(community_id, account_id);
-    let permission = storage::get(&key).map_err(|e| e.to_string())?;
-    let permission = permission
-        .map(|d| u32::decode(&mut &d[..]).map_err(|e| e.to_string()))
-        .transpose()?
-        .unwrap_or(0);
+    let permission: u32 = find(key.as_ref())?.unwrap_or(0);
     (permission == 0)
         .then(|| ())
         .ok_or("You don't have permission to post in this community".to_string())

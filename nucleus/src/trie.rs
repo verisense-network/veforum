@@ -29,6 +29,7 @@ pub fn to_community_key(community_id: CommunityId) -> [u8; 8] {
     key.to_be_bytes()
 }
 
+
 pub fn to_content_key(content_id: ContentId) -> [u8; 16] {
     let key = MIN_CONTENT_KEY | content_id;
     key.to_be_bytes()
