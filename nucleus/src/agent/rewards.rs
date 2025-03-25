@@ -4,11 +4,9 @@ use vrs_core_sdk::tss::{CryptoType, tss_sign};
 use vemodel::{AccountId, Community, CommunityId, RewardPayload};
 
 use crate::eth_types::Address;
-use crate::eth_types::bytes::Bytes;
 use crate::eth_types::hash::keccak256;
 
 pub const  SEQUENCE_KEY: &str = "SEQUENCE_KEY";
-
 
 pub fn generate_rewards(to: Address, amt: u128,  community: &Community) -> Option<RewardPayload> {
     let current_sequence: u64 = crate::find(SEQUENCE_KEY.as_bytes()).unwrap_or_default().unwrap_or_default();
