@@ -184,13 +184,14 @@ pub fn on_check_issue_result(response: CallResult<HttpResponse>,) -> Result<(Opt
 pub fn issuse_token(community: &Community, community_id: &CommunityId) -> Result<(), String> {
     let contract_bytecode = hex::decode(BYTECODE.trim_start_matches("0x")).expect("invalid bytecode");
     let token = community.token_info.clone();
+    let contract_address = ethabi::ethereum_types::Address::from(token.contract.0);
     let constructor_args = ethabi::encode(&[
             Token::String(token.name.clone()),
             Token::String(token.symbol.clone()),
             Token::Uint(token.decimals.into()),
             Token::Uint(token.total_issuance.into()),
-            Token::Bool(true),
-            Token::Address(Address::zero()),
+            Token::Bool(token.new_issue),
+            Token::Address(contract_address),
     ]);
     let full_bytecode = [contract_bytecode, constructor_args].concat();
     let gas_price: Option<u64> = crate::find(GASPRICE_STORAGE_KEY.as_bytes()).unwrap_or_default();

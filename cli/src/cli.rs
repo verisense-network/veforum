@@ -157,10 +157,13 @@ impl Into<vemodel::args::CreateCommunityArg> for CommunityCommand {
             private: false,
             slug: self.slug,
             token: vemodel::args::TokenMetadataArg {
+                name: "".to_string(),
                 symbol: self.token_name,
                 decimals: self.token_decimals,
+                new_issue: true,
                 total_issuance: self.token_total_supply,
                 image: None,
+                contract: None,
             },
             description: self.description,
             prompt: self.prompt,

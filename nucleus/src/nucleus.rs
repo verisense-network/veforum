@@ -1,5 +1,5 @@
 use std::time::Duration;
-use crate::{trie, validate_write_permission};
+use crate::{MIN_ACTIVATE_FEE, MIN_INVITE_FEE, name_to_community_id, trie, validate_write_permission};
 use parity_scale_codec::{Decode, Encode};
 use primitive_types::H256;
 use vemodel::{args::*, crypto::*, *};
@@ -53,7 +53,12 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
     } = payload;
     let token_contruct = match token.contract.clone() {
         Some(s) => {
-            AccountId::from_str(s.as_str()).map_err(|e|e.to_string())?
+            vrs_core_sdk::println!("xx>>>>>>>>>>>>>>>>>>> {}", &s);
+            AccountId::from_str(s.trim()).map_err(|e|{
+                let r =  e.to_string();
+                vrs_core_sdk::println!(">>>>>>>>>>>>>>>>>>> {}", r);
+                r
+            })?
         },
         None => H160([0u8;20])
     };
@@ -102,6 +107,7 @@ pub fn activate_community(arg: ActivateCommunityArg) -> Result<(), String> {
     let id = crate::name_to_community_id(&community).ok_or("Invalid name".to_string())?;
     let key = trie::to_community_key(id);
     let community = crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
+    vrs_core_sdk::println!("{:?}", &community);
     // prefix '0x' of the string being encoded by codec, add a space when transmitting, so here use trim
     let tx_hash = tx.trim().to_string();
     crate::agent::check_transfering(&community, tx_hash)?;
@@ -250,6 +256,22 @@ pub fn get_community(id: CommunityId) -> Result<Option<Community>, String> {
     Ok(community)
 }
 
+#[get]
+pub fn get_community1(id: String) -> Result<Option<Community>, String> {
+    vrs_core_sdk::println!(">>>>>>>>>>>. {}", id.as_str());
+
+    let id = name_to_community_id(id.as_str()).unwrap();
+    let key = trie::to_community_key(id);
+    let mut community = crate::find::<Community>(&key)?;
+    vrs_core_sdk::println!("jsoon >>>>>>>>>>>>>>: {:?}", &community);
+    community.as_mut().map(|c| c.mask());
+    Ok(community)
+}
+
+#[get]
+pub fn get_invite_fee() -> u128 {
+    MIN_INVITE_FEE
+}
 
 #[get]
 pub fn get_raw_contents(id: ContentId, limit: u32) -> Result<Vec<(ContentId, Vec<u8>)>, String> {
@@ -390,6 +412,7 @@ fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u64), Str
 
 #[init]
 pub fn init() {
+    crate::save::<Vec<(CommunityId, H256)>>(PENDING_ISSUE_KEY.as_bytes(), &vec![]);
     set_timer!(Duration::from_secs(5), query_bsc_gas_price).expect("set timer failed");
     set_timer!(Duration::from_secs(3), fetch_token_conctact_addr).expect("set timer failed");
 }

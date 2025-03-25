@@ -14,6 +14,7 @@ use vrs_core_sdk::{
 };
 use vemodel::CommunityStatus::{TokenIssued, WaitingTx};
 use crate::agent::bsc::{check_gas_price, issuse_token, on_check_issue_result, untrace_issue_tx};
+use crate::MIN_INVITE_FEE;
 use crate::trie::to_community_key;
 
 pub const OPENAI: [u8; 4] = *b"opai";
@@ -326,8 +327,30 @@ fn untrace(
                 }
             }
         }
-        HttpCallType::CheckingInviteTx(community, invitee) => {
+        HttpCallType::CheckingInviteTx(community_id, invitee) => {
+            let key = crate::trie::to_community_key(community_id);
+            let community =
+                crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
+            let agent_addr = community.agent_pubkey.to_string();
+            match bsc::on_checking_bnb_transfer(&agent_addr, response)
+                .map_err(|e| e.to_string())
+                .inspect_err(|e| println!("failed to resolve solana RPC response, {:?}", e))
+            {
+                Ok(Some(tx)) => {
 
+                    if tx.amount_received >= MIN_INVITE_FEE {
+                        let issue_result = issuse_token(&community, &community_id);
+                        if issue_result.is_err() {
+                            vrs_core_sdk::println!("failed to send issue token: {}", issue_result.err().unwrap());
+                        }else {
+                            vrs_core_sdk::println!("send issue tx succes: {}", community_id);
+                        }
+                    }
+                }
+
+                _ => {
+                }
+            }
 
         }
     }

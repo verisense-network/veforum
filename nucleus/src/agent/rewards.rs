@@ -24,7 +24,7 @@ pub fn generate_rewards(to: Address, amt: u128,  community: &Community) -> Optio
             let payload = RewardPayload {
                 payload: reward_data.to_vec(),
                 signature: s,
-                agent_contrct: community.agent_contract.unwrap(),
+                agent_contract: community.agent_contract.unwrap(),
             };
             Some(payload)
         }
