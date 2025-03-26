@@ -121,6 +121,7 @@ pub fn check_invite(community_id: CommunityId, user: AccountId) -> bool {
         p > 0
     }else { false }
 }
+
 #[post]
 pub fn invite_user(args: SignedArgs<InviteUserArgs>) -> Result<(), String> {
     let account = crate::get_account_info(args.signer)?;
