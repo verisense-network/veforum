@@ -176,7 +176,7 @@ pub fn post_thread(args: SignedArgs<PostThreadArg>) -> Result<ContentId, String>
     (community.status == CommunityStatus::Active)
         .then(|| ())
         .ok_or("Posting threads to this community is forbidden right now!".to_string())?;
-    if community.private {
+    if community.private && args.signer != community.creator {
         validate_write_permission(community_id, args.signer)?;
     }
     let id = crate::allocate_thread_id(community_id)?;
@@ -227,7 +227,7 @@ pub fn post_comment(args: SignedArgs<PostCommentArg>) -> Result<ContentId, Strin
     (community.status == CommunityStatus::Active)
         .then(|| ())
         .ok_or("Posting comments to this community is forbidden right now!".to_string())?;
-    if community.private {
+    if community.private && args.signer != community.creator {
         validate_write_permission(community_id, args.signer)?;
     }
     let thread_key = trie::to_content_key(thread_id);
