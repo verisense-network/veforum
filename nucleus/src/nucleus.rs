@@ -116,6 +116,13 @@ pub fn activate_community(arg: ActivateCommunityArg) -> Result<(), String> {
 
 #[get]
 pub fn check_invite(community_id: CommunityId, user: AccountId) -> bool {
+    let community_key = to_community_key(community_id.clone());
+    let Ok(Some(c)) = find::<Community>(community_key) else {
+        return false;
+    };
+    if c.creator == user {
+        return true;
+    }
     let key = to_permission_key(community_id, user);
     if let Ok(Some(p)) = find::<u32>(key.as_ref()) {
         p > 0
