@@ -21,6 +21,7 @@ pub fn set_llm_key(key: String) -> Result<(), String> {
 
 #[post]
 pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<CommunityId, String> {
+    vrs_core_sdk::println!(">>>>>>>>>>>>>>>>.. {:?}", &args.payload);
     let nonce = crate::get_nonce(args.signer)?;
     args.ensure_signed(nonce)?;
     crate::incr_nonce(args.signer, None)?;
@@ -120,16 +121,11 @@ pub fn check_invite(community_id: CommunityId, user: AccountId) -> bool {
     let Ok(Some(c)) = find::<Community>(&community_key) else {
         return false;
     };
-    if !c.private {
-        return true;
+    if c.private && user != c.creator {
+        validate_write_permission(community_id, user).is_ok()
+    }else {
+        true
     }
-    if c.creator == user {
-        return true;
-    }
-    let key = to_permission_key(community_id, user);
-    if let Ok(Some(p)) = find::<u32>(key.as_ref()) {
-        p > 0
-    }else { false }
 }
 
 #[post]
@@ -278,6 +274,7 @@ pub fn get_community1(id: String) -> Result<Option<Community>, String> {
     vrs_core_sdk::println!(">>>>>>>>>>>. {}", id.as_str());
 
     let id = name_to_community_id(id.as_str()).unwrap();
+    vrs_core_sdk::println!("xxx>>>>>>>>>>>.id  {}", id);
     let key = trie::to_community_key(id);
     let mut community = crate::find::<Community>(&key)?;
     vrs_core_sdk::println!("jsoon >>>>>>>>>>>>>>: {:?}", &community);
@@ -404,17 +401,6 @@ pub fn get_balances(
     Ok(r)
 }
 
-#[get]
-pub fn get_permission(account_id: AccountId, community_id: CommunityId) -> Result<u32, String> {
-    let key = trie::to_permission_key(community_id, account_id);
-    let permission = storage::get(&key).map_err(|e| e.to_string())?;
-    let permission = permission
-        .map(|d| u32::decode(&mut &d[..]).map_err(|e| e.to_string()))
-        .transpose()?
-        .unwrap_or(0);
-    Ok(permission)
-}
-
 fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u64), String> {
     let suffix: [u8; 4] = *(&key[28..].try_into().expect("qed"));
     let community_id = CommunityId::from_be_bytes(suffix);
@@ -429,7 +415,6 @@ fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u64), Str
 
 #[init]
 pub fn init() {
-    crate::save::<Vec<(CommunityId, H256)>>(PENDING_ISSUE_KEY.as_bytes(), &vec![]);
     set_timer!(Duration::from_secs(5), query_bsc_gas_price).expect("set timer failed");
     set_timer!(Duration::from_secs(3), fetch_token_conctact_addr).expect("set timer failed");
 }
@@ -439,7 +424,7 @@ pub fn query_bsc_gas_price() {
     vrs_core_sdk::println!("start to query bas gasprice");
     let id = bsc::query_gas_price().expect("query price error");
     crate::agent::trace(id, HttpCallType::QueryBscGasPrice).map_err(|e| e.to_string()).expect("query price error");
-    set_timer!(std::time::Duration::from_secs(30), query_bsc_gas_price).expect("set timer failed");
+    set_timer!(std::time::Duration::from_secs(600), query_bsc_gas_price).expect("set timer failed");
 }
 
 #[timer]
