@@ -14,7 +14,7 @@ use vrs_core_sdk::{
 };
 use vemodel::CommunityStatus::{TokenIssued, WaitingTx};
 use crate::agent::bsc::{check_gas_price, issuse_token, on_check_issue_result, untrace_issue_tx};
-use crate::{find, MIN_INVITE_FEE};
+use crate::{find, get_account_info, MIN_INVITE_FEE, trie};
 use crate::trie::{to_account_key, to_community_key, to_permission_key};
 
 pub const OPENAI: [u8; 4] = *b"opai";
@@ -339,13 +339,14 @@ fn untrace(
                 Ok(Some(tx)) => {
                     let sender = AccountId::from_str(tx.sender.as_str())?;
                     if tx.amount_received >= MIN_INVITE_FEE && sender == community.creator{
-                        let account_key = to_account_key(community.creator);
-                        let mut  account: Account = find(account_key.as_ref())?.ok_or("account not found".to_string())?;
+
+                        let mut account = get_account_info(sender.clone())?;
                         if account.max_invite_block < tx.block_number {
                             let permission_key = to_permission_key(community_id, invitee);
                             let _ = crate::save(permission_key.as_ref(), &1u32);
                             account.max_invite_block = tx.block_number;
-                            let _ = crate::save(account_key.as_ref(), &account);
+                            let key = trie::to_account_key(sender);
+                            storage::put(&key, AccountData::Pubkey(account).encode()).map_err(|e| e.to_string())?;
                         }
                     }
                 }

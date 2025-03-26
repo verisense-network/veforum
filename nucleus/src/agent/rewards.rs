@@ -1,7 +1,7 @@
 use ethabi::Token;
 use vrs_core_sdk::tss::{CryptoType, tss_sign};
 
-use vemodel::{AccountId, Community, CommunityId, RewardPayload};
+use vemodel::{Community, RewardPayload};
 
 use crate::eth_types::Address;
 use crate::eth_types::hash::keccak256;

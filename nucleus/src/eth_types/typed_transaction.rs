@@ -17,9 +17,6 @@ pub enum TypedTransaction {
     Legacy(TransactionRequest),
 }
 
-
-
-
 impl TypedTransaction {
     pub fn from(&self) -> Option<&Address> {
         match self {
