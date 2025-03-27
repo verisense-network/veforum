@@ -5,9 +5,8 @@ mod nucleus;
 mod trie;
 pub mod eth_types;
 
-use std::mem::take;
 use sha2::{Digest, Sha256};
-use vemodel::{Account, AccountData, AccountId, CommunityId, ContentId, Event, EventId, LlmVendor, RewardId, RewardPayload};
+use vemodel::{Account, AccountData, AccountId, CommunityId, ContentId, Event, EventId, LlmVendor, RewardPayload};
 use vrs_core_sdk::{
     codec::{Decode, Encode},
     storage,
@@ -149,7 +148,7 @@ pub(crate) fn get_nonce(account_id: AccountId) -> Result<u64, String> {
     }
 }
 
-pub(crate) fn incr_nonce(account_id: AccountId, update_time: Option<i32>) -> Result<(), String> {
+pub(crate) fn incr_nonce(account_id: AccountId, update_time: Option<u64>) -> Result<(), String> {
     let key = trie::to_account_key(account_id);
     let mut account = match crate::find::<AccountData>(&key)? {
         Some(AccountData::Pubkey(data)) => Ok(data),
@@ -158,7 +157,7 @@ pub(crate) fn incr_nonce(account_id: AccountId, update_time: Option<i32>) -> Res
     }?;
     account.nonce += 1;
     if let Some(t) = update_time {
-        account.last_post_at = t as i64;
+        account.last_post_at = t;
     }
     storage::put(&key, AccountData::Pubkey(account).encode()).map_err(|e| e.to_string())?;
     Ok(())

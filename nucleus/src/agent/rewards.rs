@@ -17,7 +17,7 @@ pub fn generate_rewards(to: Address, amt: u128,  community: &Community) -> Optio
     let mut prefixed_message = prefix.as_bytes().to_vec();
     prefixed_message.extend_from_slice(reward_data.as_slice());
     let message_hash = keccak256(&prefixed_message);
-    match tss_sign(CryptoType::Secp256k1, community.id().to_be_bytes(), message_hash) {
+    match tss_sign(CryptoType::EcdsaSecp256k1, community.id().to_be_bytes(), message_hash) {
         Ok(s) => {
             let payload = RewardPayload {
                 payload: reward_data.to_vec(),

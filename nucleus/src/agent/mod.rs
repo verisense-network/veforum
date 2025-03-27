@@ -14,8 +14,8 @@ use vrs_core_sdk::{
 };
 use vemodel::CommunityStatus::{TokenIssued, WaitingTx};
 use crate::agent::bsc::{check_gas_price, issuse_token, on_check_issue_result, untrace_issue_tx};
-use crate::{find, get_account_info, MIN_INVITE_FEE, trie};
-use crate::trie::{to_account_key, to_community_key, to_permission_key};
+use crate::{get_account_info, MIN_INVITE_FEE, trie};
+use crate::trie::{to_community_key, to_permission_key};
 
 pub const OPENAI: [u8; 4] = *b"opai";
 pub const DEEPSEEK: [u8; 4] = *b"dpsk";

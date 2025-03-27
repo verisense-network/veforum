@@ -77,7 +77,7 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
     };
     let key_id = id.to_be_bytes();
     let pubkey =
-        tss::tss_get_public_key(tss::CryptoType::Secp256k1, key_id).map_err(|e| e.to_string())?;
+        tss::tss_get_public_key(tss::CryptoType::EcdsaSecp256k1, key_id).map_err(|e| e.to_string())?;
     let pubkey: [u8; 33] = pubkey.try_into().map_err(|_| "TSS key error".to_string())?;
     let llm_vendor = crate::from_llm_settings(llm_name, llm_api_host, llm_key)?;
     let community = Community {
@@ -157,7 +157,7 @@ pub fn invite_user(args: SignedArgs<InviteUserArgs>) -> Result<(), String> {
 pub fn post_thread(args: SignedArgs<PostThreadArg>) -> Result<ContentId, String> {
     let account = crate::get_account_info(args.signer)?;
     account
-        .allow_post(timer::now() as i64)
+        .allow_post(timer::now())
         .then(|| ())
         .ok_or("You're sending messages too frequently.".to_string())?;
     args.ensure_signed(account.nonce)?;
@@ -209,7 +209,7 @@ pub fn post_thread(args: SignedArgs<PostThreadArg>) -> Result<ContentId, String>
 pub fn post_comment(args: SignedArgs<PostCommentArg>) -> Result<ContentId, String> {
     let account = crate::get_account_info(args.signer)?;
     account
-        .allow_post(timer::now() as i64)
+        .allow_post(timer::now())
         .then(|| ())
         .ok_or("You're sending messages too frequently.".to_string())?;
     args.ensure_signed(account.nonce)?;

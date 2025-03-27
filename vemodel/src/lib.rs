@@ -243,7 +243,7 @@ pub struct Account {
     pub address: H160,
     pub max_invite_block: u64,
     pub alias: Option<String>,
-    pub last_post_at: i64,
+    pub last_post_at: u64,
 }
 
 #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
@@ -252,7 +252,7 @@ pub enum AccountData {
     AliasOf(AccountId),
 }
 
-const POST_COOLING_DOWN: i64 = 180;
+const POST_COOLING_DOWN: u64 = 180;
 
 impl Account {
     pub fn new(address: H160) -> Self {
@@ -271,7 +271,7 @@ impl Account {
             .unwrap_or_else(|| self.address.to_string())
     }
 
-    pub fn allow_post(&self, now: i64) -> bool {
+    pub fn allow_post(&self, now: u64) -> bool {
         self.last_post_at + POST_COOLING_DOWN < now
     }
 }

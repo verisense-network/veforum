@@ -210,7 +210,7 @@ pub fn issuse_token(community: &Community, community_id: &CommunityId) -> Result
     };
     let tx = TypedTransaction::Legacy(tx);
     let sign_hash = tx.sighash();
-    let r = vrs_core_sdk::tss::tss_sign(CryptoType::Secp256k1, community_id.to_be_bytes(), sign_hash.0).map_err(|e|e.to_string())?;
+    let r = vrs_core_sdk::tss::tss_sign(CryptoType::EcdsaSecp256k1, community_id.to_be_bytes(), sign_hash.0).map_err(|e|e.to_string())?;
     let v: u64 = r.last().unwrap().clone() as u64 + BSC_CHAIN_ID * 2 + 35 ;
     let signature = Signature {
         v,
