@@ -1,5 +1,5 @@
 use std::time::Duration;
-use crate::{find, MIN_INVITE_FEE, name_to_community_id, trie, validate_write_permission};
+use crate::{find, MIN_INVITE_FEE, name_to_community_id, save, trie, validate_write_permission};
 use parity_scale_codec::{Decode, Encode};
 use primitive_types::H256;
 use vemodel::{args::*, crypto::*, *};
@@ -8,7 +8,7 @@ use vemodel::CommunityStatus::{TokenIssued};
 use crate::agent::{bsc, HttpCallType, PENDING_ISSUE_KEY, trace};
 use crate::agent::bsc::{initiate_query_bsc_transaction};
 use std::str::FromStr;
-use crate::trie::{to_community_key};
+use crate::trie::{to_community_key, to_invitecode_amt_key, to_permission_key};
 
 type SignedArgs<T> = Args<T, EcdsaSignature>;
 
@@ -130,6 +130,7 @@ pub fn check_invite(community_id: CommunityId, user: AccountId) -> bool {
 
 #[post]
 pub fn invite_user(args: SignedArgs<InviteUserArgs>) -> Result<(), String> {
+
     let account = crate::get_account_info(args.signer)?;
     args.ensure_signed(account.nonce)?;
     crate::incr_nonce(args.signer, None)?;
@@ -146,9 +147,47 @@ pub fn invite_user(args: SignedArgs<InviteUserArgs>) -> Result<(), String> {
     if args.signer != community.creator {
         return Err("Creator can invite users only".to_string());
     }
+
+    let invite_code_amount_key = to_invitecode_amt_key(community_id, args.signer);
+    let invite_code_amount: u64 = find(invite_code_amount_key.as_ref()).unwrap_or_default().unwrap_or_default();
+    if invite_code_amount == 0 {
+        return Err("you have not enough invite code".to_string());
+    }
+    save(invite_code_amount_key.as_ref(), &(invite_code_amount - 1));
+    let permission_key = to_permission_key(community_id, content.invitee);
+    let _ = crate::save(permission_key.as_ref(), &1u32);
+    Ok(())
+}
+
+#[get]
+pub fn  invitecode_amount(community_id: CommunityId, user: AccountId) -> u64 {
+    let invite_code_amount_key = to_invitecode_amt_key(community_id, user);
+    find(invite_code_amount_key.as_ref()).unwrap_or_default().unwrap_or_default()
+}
+
+
+#[post]
+pub fn generate_invite_codes(args: SignedArgs<GenerateInviteCodeArgs>) -> Result<(), String> {
+    let account = crate::get_account_info(args.signer)?;
+    args.ensure_signed(account.nonce)?;
+    crate::incr_nonce(args.signer, None)?;
+    let content = args.payload;
+    let community_id =
+        crate::name_to_community_id(&content.community).ok_or("Invalid community name".to_string())?;
+    let community_key = to_community_key(community_id);
+    let Ok(Some(community)) = crate::find::<Community>(community_key.as_slice()) else {
+        return Err("community not found".to_string());
+    };
+    if !community.private {
+        return Err("community is public, Not need to invite".to_string());
+    }
+    if args.signer != community.creator {
+        return Err("Creator can invite users only".to_string());
+    }
+
     let tx_hash = content.tx.trim().to_string();
     let id = bsc::initiate_query_bsc_transaction(&tx_hash)?;
-    trace(id, HttpCallType::CheckingInviteTx(community.id(), content.invitee)).map_err(|e| e.to_string())?;
+    trace(id, HttpCallType::CheckingInviteTx(community.id())).map_err(|e| e.to_string())?;
     Ok(())
 }
 

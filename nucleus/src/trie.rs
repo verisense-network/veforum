@@ -17,6 +17,8 @@ pub const BALANCE_KEY_PREFIX: u64 = 0x00000004_00000000;
 pub const PERMISSION_KEY_PREFIX: u64 = 0x00000005_00000000;
 pub const REWARD_PAYLOAD_PREFIX: u64 = 0x00000006_00000000;
 pub const REWARD_SEQ_PREFIX: u64  = 0x00000007_00000000;
+pub const INVITE_AMT_PREFIX: u64  = 0x00000008_00000000;
+
 pub const KEY_STORE: u64 = 0x00000010_00000000;
 pub const HTTP_MASK: u128 = 0x0000000f_00000000_00000000_00000000;
 
@@ -87,6 +89,17 @@ pub fn to_balance_key(community_id: CommunityId, account_id: AccountId) -> [u8; 
     .concat()
     .try_into()
     .unwrap()
+}
+
+pub fn to_invitecode_amt_key(community_id: CommunityId, account_id: AccountId) -> [u8; 32] {
+    [
+        &INVITE_AMT_PREFIX.to_be_bytes()[..],
+        &account_id.0[..],
+        &community_id.to_be_bytes()[..],
+    ]
+        .concat()
+        .try_into()
+        .unwrap()
 }
 
 pub fn to_reward_payload_key(community_id: CommunityId, account_id: AccountId) -> [u8;32]{

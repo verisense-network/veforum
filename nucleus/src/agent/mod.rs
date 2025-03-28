@@ -14,8 +14,8 @@ use vrs_core_sdk::{
 };
 use vemodel::CommunityStatus::{TokenIssued, WaitingTx};
 use crate::agent::bsc::{check_gas_price, issuse_token, on_check_issue_result, untrace_issue_tx};
-use crate::{get_account_info, MIN_INVITE_FEE, trie};
-use crate::trie::{to_community_key, to_permission_key};
+use crate::{find, get_account_info, MIN_INVITE_FEE, save, trie};
+use crate::trie::{to_community_key, to_invitecode_amt_key, to_permission_key};
 
 pub const OPENAI: [u8; 4] = *b"opai";
 pub const DEEPSEEK: [u8; 4] = *b"dpsk";
@@ -60,7 +60,7 @@ pub enum HttpCallType {
     SendIssueTx(CommunityId),
     QueryBscGasPrice,
     QueryIssueResult(CommunityId),
-    CheckingInviteTx(CommunityId, AccountId),
+    CheckingInviteTx(CommunityId),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -327,7 +327,7 @@ fn untrace(
                 }
             }
         }
-        HttpCallType::CheckingInviteTx(community_id, invitee) => {
+        HttpCallType::CheckingInviteTx(community_id) => {
             let key = crate::trie::to_community_key(community_id);
             let community =
                 crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
@@ -340,14 +340,16 @@ fn untrace(
                     let sender = AccountId::from_str(tx.sender.as_str())?;
                     if tx.amount_received >= MIN_INVITE_FEE && sender == community.creator{
 
-                        let mut account = get_account_info(sender.clone())?;
+                       let mut account = get_account_info(sender.clone())?;
                         if account.max_invite_block < tx.block_number {
-                            let permission_key = to_permission_key(community_id, invitee);
-                            let _ = crate::save(permission_key.as_ref(), &1u32);
+                            let new_code_amount = (tx.amount_received/MIN_INVITE_FEE) as u64;
                             account.max_invite_block = tx.block_number;
                             let key = trie::to_account_key(sender);
                             storage::put(&key, AccountData::Pubkey(account).encode()).map_err(|e| e.to_string())?;
-                        }
+                            let invite_amount_key = to_invitecode_amt_key(community_id, sender);
+                            let old_amount = find::<u64>(invite_amount_key.as_ref()).unwrap_or_default().unwrap_or_default();
+                            save(invite_amount_key.as_ref(), &(old_amount+ new_code_amount)).expect("error to save invite code amount");
+                        };
                     }
                 }
                 _ => {
