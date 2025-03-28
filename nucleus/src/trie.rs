@@ -16,9 +16,10 @@ pub const ACCOUNT_KEY_PREFIX: u64 = 0x00000003_00000000;
 pub const BALANCE_KEY_PREFIX: u64 = 0x00000004_00000000;
 pub const PERMISSION_KEY_PREFIX: u64 = 0x00000005_00000000;
 pub const REWARD_PAYLOAD_PREFIX: u64 = 0x00000006_00000000;
-
-pub const HTTP_MASK: u128 = 0x0000000f_00000000_00000000_00000000;
+pub const REWARD_SEQ_PREFIX: u64  = 0x00000007_00000000;
 pub const KEY_STORE: u64 = 0x00000010_00000000;
+pub const HTTP_MASK: u128 = 0x0000000f_00000000_00000000_00000000;
+
 
 pub fn is_comment(content_id: ContentId) -> bool {
     content_id & 0xffffffff != 0
@@ -88,10 +89,21 @@ pub fn to_balance_key(community_id: CommunityId, account_id: AccountId) -> [u8; 
     .unwrap()
 }
 
-pub fn to_reward_payload_key(account_id: AccountId) -> [u8;28]{
+pub fn to_reward_payload_key(community_id: CommunityId, account_id: AccountId) -> [u8;32]{
     [
         &REWARD_PAYLOAD_PREFIX.to_be_bytes()[..],
         &account_id.0[..],
+        &community_id.to_be_bytes()[..],
+    ]
+        .concat()
+        .try_into()
+        .unwrap()
+}
+
+pub fn to_reward_seq_key(community_id: CommunityId) -> [u8;12]{
+    [
+        &REWARD_SEQ_PREFIX.to_be_bytes()[..],
+        &community_id.to_be_bytes()[..],
     ]
         .concat()
         .try_into()

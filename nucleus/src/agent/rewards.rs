@@ -5,13 +5,14 @@ use vemodel::{Community, RewardPayload};
 
 use crate::eth_types::Address;
 use crate::eth_types::hash::keccak256;
+use crate::trie::to_reward_seq_key;
 
-pub const  SEQUENCE_KEY: &str = "SEQUENCE_KEY";
 
 pub fn generate_rewards(to: Address, amt: u128,  community: &Community) -> Option<RewardPayload> {
-    let current_sequence: u64 = crate::find(SEQUENCE_KEY.as_bytes()).unwrap_or_default().unwrap_or_default();
+    let seq_key = to_reward_seq_key(community.id());
+    let current_sequence: u64 = crate::find(&seq_key).unwrap_or_default().unwrap_or_default();
     let seq = current_sequence+1;
-    let _ = crate::save(SEQUENCE_KEY.as_bytes(), &seq);
+    let _ = crate::save(&seq_key, &seq);
     let reward_data = ethabi::encode(&[Token::Uint(seq.into()), Token::Address(to), Token::Uint(amt.into())]);
     let prefix = format!("\x19Ethereum Signed Message:\n{}", reward_data.len());
     let mut prefixed_message = prefix.as_bytes().to_vec();
@@ -23,6 +24,9 @@ pub fn generate_rewards(to: Address, amt: u128,  community: &Community) -> Optio
                 payload: reward_data.to_vec(),
                 signature: s,
                 agent_contract: community.agent_contract.unwrap(),
+                token_symbol: community.token_info.symbol.clone(),
+                token_contract: community.token_info.contract.clone(),
+                withdrawed: false,
             };
             Some(payload)
         }

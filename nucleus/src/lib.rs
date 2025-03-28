@@ -133,8 +133,8 @@ pub(crate) fn get_account_info(account_id: AccountId) -> Result<Account, String>
     }
 }
 
-pub(crate) fn get_rewards(account_id: AccountId) -> Vec<RewardPayload>{
-    let key = to_reward_payload_key(account_id);
+pub(crate) fn get_rewards(community_id: CommunityId, account_id: AccountId) -> Vec<RewardPayload>{
+    let key = to_reward_payload_key(community_id, account_id);
     let v: Vec<RewardPayload> = crate::find(key.as_ref()).unwrap_or_default().unwrap_or_default();
     v
 }
@@ -192,7 +192,7 @@ pub(crate) fn transfer(
     let community_key = trie::to_community_key(community_id);
     let community = crate::find(community_key.as_slice()).unwrap().unwrap();
     if let Some(reward) = generate_rewards(Address::from(to.0.clone()), amount as u128, &community) {
-        let key = to_reward_payload_key(to.clone());
+        let key = to_reward_payload_key(community_id, to.clone());
         let mut v: Vec<RewardPayload> = crate::find(key.as_ref()).unwrap_or_default().unwrap_or_default();
         v.push(reward);
         crate::save(key.as_slice(), &v);

@@ -366,8 +366,8 @@ pub fn get_account_info(account_id: AccountId) -> Result<Account, String> {
 }
 
 #[get]
-pub fn get_reward_payloads(account_id: AccountId) -> Vec<RewardPayload> {
-    crate::get_rewards(account_id)
+pub fn get_reward_payloads(community_id: CommunityId, account_id: AccountId) -> Vec<RewardPayload> {
+    crate::get_rewards(community_id, account_id)
 }
 
 #[get]
