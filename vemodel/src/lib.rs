@@ -51,6 +51,7 @@ pub enum CommunityStatus {
 pub struct Community {
     pub id: String,
     pub private: bool,
+    pub opening_join: bool,
     pub logo: String,
     pub name: String,
     pub slug: String,
@@ -58,6 +59,8 @@ pub struct Community {
     pub token_info: TokenMetadata,
     pub agent_contract: Option<AccountId>,
     pub prompt: String,
+    pub platform_bnb_benefit: u64,
+    pub creator_bnb_benefit: u64,
     pub creator: AccountId,
     pub agent_pubkey: AccountId,
     pub llm_vendor: LlmVendor,
