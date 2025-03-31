@@ -1,17 +1,16 @@
-use std::time::Duration;
-use crate::{find, MIN_INVITE_FEE, name_to_community_id, save, trie, validate_write_permission};
+use crate::agent::bsc::initiate_query_bsc_transaction;
+use crate::agent::{bsc, trace, HttpCallType, PENDING_ISSUE_KEY};
+use crate::trie::{to_community_key, to_invitecode_amt_key, to_permission_key};
+use crate::{find, name_to_community_id, save, trie, validate_write_permission, MIN_INVITE_FEE};
 use parity_scale_codec::{Decode, Encode};
 use primitive_types::H256;
+use std::str::FromStr;
+use std::time::Duration;
+use vemodel::CommunityStatus::TokenIssued;
 use vemodel::{args::*, crypto::*, *};
 use vrs_core_sdk::{get, init, post, set_timer, storage, timer, tss};
-use vemodel::CommunityStatus::{TokenIssued};
-use crate::agent::{bsc, HttpCallType, PENDING_ISSUE_KEY, trace};
-use crate::agent::bsc::{initiate_query_bsc_transaction};
-use std::str::FromStr;
-use crate::trie::{to_community_key, to_invitecode_amt_key, to_permission_key};
 
 type SignedArgs<T> = Args<T, EcdsaSignature>;
-
 
 // TODO authorization
 #[post]
@@ -52,18 +51,18 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
         llm_api_host,
         llm_key,
     } = payload;
-    let token_contruct = match token.contract.clone() {
+    let token_contract = match token.contract.clone() {
         Some(s) => {
             vrs_core_sdk::println!("xx>>>>>>>>>>>>>>>>>>> {}", &s);
-            AccountId::from_str(s.trim()).map_err(|e|{
-                let r =  e.to_string();
+            AccountId::from_str(s.trim()).map_err(|e| {
+                let r = e.to_string();
                 vrs_core_sdk::println!(">>>>>>>>>>>>>>>>>>> {}", r);
                 r
             })?
-        },
-        None => H160([0u8;20])
+        }
+        None => H160([0u8; 20]),
     };
-    if !token.new_issue  &&  token.contract.is_none(){
+    if !token.new_issue && token.contract.is_none() {
         return Err("the token contract must set if using a exist token contract".to_string());
     }
     let token_info = TokenMetadata {
@@ -71,13 +70,13 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
         symbol: token.symbol,
         total_issuance: token.total_issuance,
         decimals: token.decimals,
-        contract: token_contruct,
+        contract: token_contract,
         new_issue: token.new_issue,
         image: token.image,
     };
     let key_id = id.to_be_bytes();
-    let pubkey =
-        tss::tss_get_public_key(tss::CryptoType::EcdsaSecp256k1, key_id).map_err(|e| e.to_string())?;
+    let pubkey = tss::tss_get_public_key(tss::CryptoType::EcdsaSecp256k1, key_id)
+        .map_err(|e| e.to_string())?;
     let pubkey: [u8; 33] = pubkey.try_into().map_err(|_| "TSS key error".to_string())?;
     let llm_vendor = crate::from_llm_settings(llm_name, llm_api_host, llm_key)?;
     let community = Community {
@@ -111,7 +110,6 @@ pub fn activate_community(arg: ActivateCommunityArg) -> Result<(), String> {
     let id = crate::name_to_community_id(&community).ok_or("Invalid name".to_string())?;
     let key = trie::to_community_key(id);
     let community = crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
-    vrs_core_sdk::println!("{:?}", &community);
     // prefix '0x' of the string being encoded by codec, add a space when transmitting, so here use trim
     let tx_hash = tx.trim().to_string();
     crate::agent::check_transfering(&community, tx_hash)?;
@@ -126,20 +124,19 @@ pub fn check_invite(community_id: CommunityId, user: AccountId) -> bool {
     };
     if c.private && user != c.creator {
         validate_write_permission(community_id, user).is_ok()
-    }else {
+    } else {
         true
     }
 }
 
 #[post]
 pub fn invite_user(args: SignedArgs<InviteUserArgs>) -> Result<(), String> {
-
     let account = crate::get_account_info(args.signer)?;
     args.ensure_signed(account.nonce)?;
     crate::incr_nonce(args.signer, None)?;
     let content = args.payload;
-    let community_id =
-        crate::name_to_community_id(&content.community).ok_or("Invalid community name".to_string())?;
+    let community_id = crate::name_to_community_id(&content.community)
+        .ok_or("Invalid community name".to_string())?;
     let community_key = to_community_key(community_id);
     let Ok(Some(community)) = crate::find::<Community>(community_key.as_slice()) else {
         return Err("community not found".to_string());
@@ -152,7 +149,9 @@ pub fn invite_user(args: SignedArgs<InviteUserArgs>) -> Result<(), String> {
     }
 
     let invite_code_amount_key = to_invitecode_amt_key(community_id, args.signer);
-    let invite_code_amount: u64 = find(invite_code_amount_key.as_ref()).unwrap_or_default().unwrap_or_default();
+    let invite_code_amount: u64 = find(invite_code_amount_key.as_ref())
+        .unwrap_or_default()
+        .unwrap_or_default();
     if invite_code_amount == 0 {
         return Err("you have not enough invite code".to_string());
     }
@@ -163,11 +162,12 @@ pub fn invite_user(args: SignedArgs<InviteUserArgs>) -> Result<(), String> {
 }
 
 #[get]
-pub fn  invitecode_amount(community_id: CommunityId, user: AccountId) -> u64 {
+pub fn invitecode_amount(community_id: CommunityId, user: AccountId) -> u64 {
     let invite_code_amount_key = to_invitecode_amt_key(community_id, user);
-    find(invite_code_amount_key.as_ref()).unwrap_or_default().unwrap_or_default()
+    find(invite_code_amount_key.as_ref())
+        .unwrap_or_default()
+        .unwrap_or_default()
 }
-
 
 #[post]
 pub fn generate_invite_codes(args: SignedArgs<GenerateInviteCodeArgs>) -> Result<(), String> {
@@ -175,8 +175,8 @@ pub fn generate_invite_codes(args: SignedArgs<GenerateInviteCodeArgs>) -> Result
     args.ensure_signed(account.nonce)?;
     crate::incr_nonce(args.signer, None)?;
     let content = args.payload;
-    let community_id =
-        crate::name_to_community_id(&content.community).ok_or("Invalid community name".to_string())?;
+    let community_id = crate::name_to_community_id(&content.community)
+        .ok_or("Invalid community name".to_string())?;
     let community_key = to_community_key(community_id);
     let Ok(Some(community)) = crate::find::<Community>(community_key.as_slice()) else {
         return Err("community not found".to_string());
@@ -193,7 +193,6 @@ pub fn generate_invite_codes(args: SignedArgs<GenerateInviteCodeArgs>) -> Result
     trace(id, HttpCallType::CheckingInviteTx(community.id())).map_err(|e| e.to_string())?;
     Ok(())
 }
-
 
 #[post]
 pub fn post_thread(args: SignedArgs<PostThreadArg>) -> Result<ContentId, String> {
@@ -455,7 +454,6 @@ fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u64), Str
     Ok((community, balance))
 }
 
-
 #[init]
 pub fn init() {
     set_timer!(Duration::from_secs(5), query_bsc_gas_price).expect("set timer failed");
@@ -466,13 +464,16 @@ pub fn init() {
 pub fn query_bsc_gas_price() {
     vrs_core_sdk::println!("start to query bas gasprice");
     let id = bsc::query_gas_price().expect("query price error");
-    crate::agent::trace(id, HttpCallType::QueryBscGasPrice).map_err(|e| e.to_string()).expect("query price error");
+    crate::agent::trace(id, HttpCallType::QueryBscGasPrice)
+        .map_err(|e| e.to_string())
+        .expect("query price error");
     set_timer!(std::time::Duration::from_secs(600), query_bsc_gas_price).expect("set timer failed");
 }
 
 #[timer]
 pub fn fetch_token_conctact_addr() {
-    let pending_issues: Result<Option<Vec<(CommunityId, H256, u64)>>, String> = crate::find(PENDING_ISSUE_KEY.as_bytes());
+    let pending_issues: Result<Option<Vec<(CommunityId, H256, u64)>>, String> =
+        crate::find(PENDING_ISSUE_KEY.as_bytes());
     if let Ok(Some(v)) = pending_issues {
         let mut failed_v = vec![];
         for (community_id, tx_hash, add_time) in v {
@@ -480,8 +481,7 @@ pub fn fetch_token_conctact_addr() {
                 continue;
             }
             let key = crate::trie::to_community_key(community_id);
-            let Ok(Some(community)) =
-                crate::find::<Community>(&key) else {
+            let Ok(Some(community)) = crate::find::<Community>(&key) else {
                 continue;
             };
             if let TokenIssued(_tx) = community.status {
