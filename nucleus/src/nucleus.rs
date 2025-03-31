@@ -469,17 +469,20 @@ pub fn query_bsc_gas_price() {
 
 #[timer]
 pub fn fetch_token_conctact_addr() {
-    let pending_issues: Result<Option<Vec<(CommunityId, H256)>>, String> = crate::find(PENDING_ISSUE_KEY.as_bytes());
+    let pending_issues: Result<Option<Vec<(CommunityId, H256, u64)>>, String> = crate::find(PENDING_ISSUE_KEY.as_bytes());
     if let Ok(Some(v)) = pending_issues {
         let mut failed_v = vec![];
-        for (community_id, tx_hash) in v {
+        for (community_id, tx_hash, add_time) in v {
+            if add_time + 300 < timer::now() {
+                continue;
+            }
             let key = crate::trie::to_community_key(community_id);
             let Ok(Some(community)) =
                 crate::find::<Community>(&key) else {
                 continue;
             };
             if let TokenIssued(_tx) = community.status {
-                failed_v.push((community_id, tx_hash));
+                failed_v.push((community_id, tx_hash, add_time));
             }
             let tx_hash = format!("0x{}", hex::encode(tx_hash.0.as_slice()));
             if let Ok(id) = initiate_query_bsc_transaction(tx_hash.as_str()) {

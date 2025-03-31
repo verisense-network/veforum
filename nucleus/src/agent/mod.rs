@@ -276,8 +276,8 @@ fn untrace(
                             vrs_core_sdk::println!("untrace issue tx error: txid notfound");
                         }
                         Some(tx) => {
-                            let mut v: Vec<(CommunityId, H256)> = crate::find(PENDING_ISSUE_KEY.as_bytes()).unwrap_or_default().unwrap_or_default();
-                            v.push((community, tx));
+                            let mut v: Vec<(CommunityId, H256, u64)> = crate::find(PENDING_ISSUE_KEY.as_bytes()).unwrap_or_default().unwrap_or_default();
+                            v.push((community, tx, vrs_core_sdk::timer::now()));
                             let _ = crate::save(PENDING_ISSUE_KEY.as_bytes(), &v);
                             let key = to_community_key(community);
                             let mut communityo =
@@ -475,9 +475,9 @@ pub(crate) fn check_transfering(community: &Community, tx: String) -> Result<(),
     match community.status.clone() {
         CommunityStatus::PendingCreation|  CommunityStatus::Active => Ok(()),
         TokenIssued(issue_tx) => {
-            let mut v: Vec<(CommunityId, H256)> = crate::find(PENDING_ISSUE_KEY.as_bytes()).unwrap_or_default().unwrap_or_default();
+            let mut v: Vec<(CommunityId, H256, u64)> = crate::find(PENDING_ISSUE_KEY.as_bytes()).unwrap_or_default().unwrap_or_default();
             let tx = H256::from_str(issue_tx.trim_start_matches("0x")).unwrap();
-            v.push((community.id(), tx));
+            v.push((community.id(), tx, timer::now()));
             let _ = crate::save(PENDING_ISSUE_KEY.as_bytes(), &v);
             Ok(())
         },
