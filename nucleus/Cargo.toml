@@ -16,3 +16,9 @@ regex = "1.11.1"
 serde_json = "1"
 hex = "0.4"
 flate2 = "1.0"
+ethabi = { version = "18.0.0", features = ["rlp","serde"], default-features = false }
+primitive-types = { version = "0.12.2", features = ["rlp"], default-features = false }
+thiserror = "1.0.69"
+rlp = {version = "0.5", features = ["derive"]}
+bytes = {version = "1.4", features = ["serde"]}
+tiny-keccak = "2.0.2"

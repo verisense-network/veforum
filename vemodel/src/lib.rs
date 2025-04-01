@@ -4,6 +4,7 @@ use sha2::{Digest, Sha256};
 
 pub type CommunityId = u32;
 pub type EventId = u64;
+pub type RewardId = u64;
 pub type ContentId = u128;
 
 pub fn is_comment(content_id: ContentId) -> bool {
@@ -34,25 +35,36 @@ pub enum Event {
     CommentDeleted(ContentId),
 }
 
-#[derive(Debug, Decode, Encode, Deserialize, Serialize, Eq, PartialEq)]
+#[derive(Debug, Decode, Clone, Encode, Deserialize, Serialize, Eq, PartialEq)]
 pub enum CommunityStatus {
     PendingCreation,
     WaitingTx(u128),
     CreateFailed(String),
     Active,
     Frozen(u64),
+    TokenIssued(String),
+}
+
+#[derive(Debug, Decode, Clone, Encode, Deserialize, Serialize, Eq, PartialEq)]
+pub enum CommunityMode {
+    Public,
+    InviteOnly(u128),
+    PayToJoin(u128),
 }
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
 pub struct Community {
     pub id: String,
-    pub private: bool,
+    pub mode: CommunityMode,
     pub logo: String,
     pub name: String,
     pub slug: String,
     pub description: String,
     pub token_info: TokenMetadata,
+    pub agent_contract: Option<AccountId>,
     pub prompt: String,
+    pub platform_bnb_benefit: u64,
+    pub creator_bnb_benefit: u64,
     pub creator: AccountId,
     pub agent_pubkey: AccountId,
     pub llm_vendor: LlmVendor,
@@ -237,8 +249,9 @@ impl serde::Serialize for H160 {
 pub struct Account {
     pub nonce: u64,
     pub address: H160,
+    pub last_transfer_block: u64,
     pub alias: Option<String>,
-    pub last_post_at: i64,
+    pub last_post_at: u64,
 }
 
 #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
@@ -247,13 +260,14 @@ pub enum AccountData {
     AliasOf(AccountId),
 }
 
-const POST_COOLING_DOWN: i64 = 180;
+const POST_COOLING_DOWN: u64 = 180;
 
 impl Account {
     pub fn new(address: H160) -> Self {
         Self {
             nonce: 0,
             address,
+            last_transfer_block: 0,
             alias: None,
             last_post_at: 0,
         }
@@ -265,16 +279,18 @@ impl Account {
             .unwrap_or_else(|| self.address.to_string())
     }
 
-    pub fn allow_post(&self, now: i64) -> bool {
+    pub fn allow_post(&self, now: u64) -> bool {
         self.last_post_at + POST_COOLING_DOWN < now
     }
 }
 
 #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
 pub struct TokenMetadata {
+    pub name: String,
     pub symbol: String,
     pub total_issuance: u64,
     pub decimals: u8,
+    pub new_issue: bool,
     pub contract: AccountId,
     pub image: Option<String>,
 }
@@ -414,7 +430,7 @@ pub mod args {
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
     pub struct CreateCommunityArg {
         pub name: String,
-        pub private: bool,
+        pub mode: CommunityMode,
         pub logo: String,
         pub token: TokenMetadataArg,
         pub slug: String,
@@ -427,9 +443,12 @@ pub mod args {
 
     #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
     pub struct TokenMetadataArg {
+        pub name: String,
         pub symbol: String,
         pub total_issuance: u64,
         pub decimals: u8,
+        pub new_issue: bool,
+        pub contract: Option<String>,
         pub image: Option<String>,
     }
 
@@ -473,6 +492,18 @@ pub mod args {
     }
 
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
+    pub struct GenerateInviteTicketArgs {
+        pub community: String,
+        pub tx: String,
+    }
+
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
+    pub struct InviteUserArgs {
+        pub community: String,
+        pub invitee: AccountId,
+    }
+
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
     pub struct PostCommentArg {
         pub thread: ContentId,
         pub content: Vec<u8>,
@@ -494,4 +525,14 @@ pub mod args {
             Ok(())
         }
     }
+}
+
+#[derive(Debug, Clone, Decode, Encode)]
+pub struct RewardPayload {
+    pub payload: Vec<u8>,
+    pub signature: Vec<u8>,
+    pub agent_contract: AccountId,
+    pub token_symbol: String,
+    pub token_contract: AccountId,
+    pub withdrawed: bool,
 }

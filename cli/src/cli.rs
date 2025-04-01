@@ -85,10 +85,10 @@ impl Options {
 
 #[derive(Debug, Subcommand)]
 pub enum SubCmd {
-    // CreateCommunity(CommunityCommand),
-    // ActivateCommunity(ActivateCommand),
-    // PostThread(ThreadCommand),
-    // PostComment(CommentCommand),
+    CreateCommunity(CommunityCommand),
+    ActivateCommunity(ActivateCommand),
+    PostThread(ThreadCommand),
+    PostComment(CommentCommand),
     GetCommunity(GetCommunityCommand),
     GetContent(GetContentCommand),
     GetEvents(GetEventsCommand),
@@ -157,10 +157,13 @@ impl Into<vemodel::args::CreateCommunityArg> for CommunityCommand {
             private: false,
             slug: self.slug,
             token: vemodel::args::TokenMetadataArg {
+                name: "".to_string(),
                 symbol: self.token_name,
                 decimals: self.token_decimals,
+                new_issue: true,
                 total_issuance: self.token_total_supply,
                 image: None,
+                contract: None,
             },
             description: self.description,
             prompt: self.prompt,

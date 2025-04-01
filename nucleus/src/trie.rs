@@ -4,20 +4,21 @@ use vemodel::*;
 pub const MAX_COMMUNITY_ID: u32 = 0xffffffff;
 pub const MAX_EVENT_ID: u64 = 0xffffffff_ffffffff;
 pub const MAX_CONTENT_ID: u128 = 0x00000000_ffffffff_ffffffff_ffffffff;
-
 pub const MAX_EVENT_KEY: u128 = 0x00000000_00000000_ffffffff_ffffffff;
 pub const MIN_COMMUNITIE_KEY: u64 = 0x00000001_00000000;
 #[allow(dead_code)]
 pub const MAX_COMMUNITY_KEY: u64 = 0x00000001_ffffffff;
 pub const MIN_CONTENT_KEY: u128 = 0x00000002_00000000_00000000_00000000;
 pub const MAX_CONTENT_KEY: u128 = 0x00000002_ffffffff_ffffffff_ffffffff;
-
 pub const ACCOUNT_KEY_PREFIX: u64 = 0x00000003_00000000;
 pub const BALANCE_KEY_PREFIX: u64 = 0x00000004_00000000;
 pub const PERMISSION_KEY_PREFIX: u64 = 0x00000005_00000000;
-
-pub const HTTP_MASK: u128 = 0x0000000f_00000000_00000000_00000000;
+pub const REWARD_PAYLOAD_PREFIX: u64 = 0x00000006_00000000;
+pub const REWARD_SEQ_PREFIX: u64 = 0x00000007_00000000;
+pub const INVITE_AMT_PREFIX: u64 = 0x00000008_00000000;
+pub const GASPRICE_STORAGE_KEY: u64 = 0x00000009_00000000;
 pub const KEY_STORE: u64 = 0x00000010_00000000;
+pub const HTTP_MASK: u128 = 0x0000000f_00000000_00000000_00000000;
 
 pub fn is_comment(content_id: ContentId) -> bool {
     content_id & 0xffffffff != 0
@@ -79,6 +80,38 @@ pub fn to_balance_key(community_id: CommunityId, account_id: AccountId) -> [u8; 
     [
         &BALANCE_KEY_PREFIX.to_be_bytes()[..],
         &account_id.0[..],
+        &community_id.to_be_bytes()[..],
+    ]
+    .concat()
+    .try_into()
+    .unwrap()
+}
+
+pub fn to_invitecode_amt_key(community_id: CommunityId, account_id: AccountId) -> [u8; 32] {
+    [
+        &INVITE_AMT_PREFIX.to_be_bytes()[..],
+        &account_id.0[..],
+        &community_id.to_be_bytes()[..],
+    ]
+    .concat()
+    .try_into()
+    .unwrap()
+}
+
+pub fn to_reward_payload_key(community_id: CommunityId, account_id: AccountId) -> [u8; 32] {
+    [
+        &REWARD_PAYLOAD_PREFIX.to_be_bytes()[..],
+        &account_id.0[..],
+        &community_id.to_be_bytes()[..],
+    ]
+    .concat()
+    .try_into()
+    .unwrap()
+}
+
+pub fn to_reward_seq_key(community_id: CommunityId) -> [u8; 12] {
+    [
+        &REWARD_SEQ_PREFIX.to_be_bytes()[..],
         &community_id.to_be_bytes()[..],
     ]
     .concat()
