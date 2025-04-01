@@ -51,15 +51,8 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
         llm_api_host,
         llm_key,
     } = payload;
-    let token_contract = match token.contract.clone() {
-        Some(s) => {
-            vrs_core_sdk::println!("xx>>>>>>>>>>>>>>>>>>> {}", &s);
-            AccountId::from_str(s.trim()).map_err(|e| {
-                let r = e.to_string();
-                vrs_core_sdk::println!(">>>>>>>>>>>>>>>>>>> {}", r);
-                r
-            })?
-        }
+    let token_contract = match token.contract.as_ref() {
+        Some(s) => AccountId::from_str(s.trim()).map_err(|e| e.to_string())?,
         None => H160([0u8; 20]),
     };
     if !token.new_issue && token.contract.is_none() {

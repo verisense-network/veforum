@@ -1,25 +1,23 @@
 //! generate by OpenAI
 use std::collections::BTreeMap;
 
-use ethabi::{Token};
-use serde::{Deserialize, Serialize};
-use vrs_core_sdk::{
-    CallResult,
-    http::{self, HttpMethod, HttpRequest, HttpResponse, RequestHead},
-};
-use vrs_core_sdk::tss::CryptoType;
-
-use vemodel::{Community, CommunityId};
-
-use crate::agent::{GASPRICE_STORAGE_KEY, HttpCallType, trace};
-use crate::agent::contract::{BYTECODE};
-use crate::eth_types::{Address, U64, U256, TxHash};
+use crate::agent::contract::BYTECODE;
+use crate::agent::{trace, HttpCallType, GASPRICE_STORAGE_KEY};
 use crate::eth_types::bytes::Bytes;
 use crate::eth_types::signature::Signature;
-use crate::eth_types::transaction::{TransactionRequest};
+use crate::eth_types::transaction::TransactionRequest;
 use crate::eth_types::typed_transaction::TypedTransaction;
+use crate::eth_types::{Address, TxHash, U256, U64};
+use ethabi::Token;
+use serde::{Deserialize, Serialize};
+use vemodel::{Community, CommunityId};
+use vrs_core_sdk::tss::CryptoType;
+use vrs_core_sdk::{
+    http::{self, HttpMethod, HttpRequest, HttpResponse, RequestHead},
+    CallResult,
+};
 
-pub const BSC_CHAIN_ID:u64 = 56;
+pub const BSC_CHAIN_ID: u64 = 56;
 pub const BSC_URL: &str = "https://bsc-dataseed.binance.org";
 
 pub(crate) fn initiate_query_bsc_transaction(tx_hash: &str) -> Result<u64, String> {
@@ -60,7 +58,7 @@ pub(crate) fn send_raw_transaction(raw_transaction: &str) -> Result<u64, String>
         },
         body: serde_json::to_vec(&body).expect("json;qed"),
     })
-        .map_err(|e| e.to_string())?;
+    .map_err(|e| e.to_string())?;
     Ok(response)
 }
 
@@ -102,7 +100,6 @@ struct Receipt {
     gas_used: String,
 }
 
-
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 struct Log {
@@ -122,8 +119,6 @@ struct RpcResponse<T> {
     #[serde(rename = "result")]
     result: Option<T>,
 }
-
-
 
 #[derive(Deserialize, Serialize, Debug)]
 struct ResultData {
@@ -166,36 +161,38 @@ pub(crate) fn on_checking_bnb_transfer(
     Ok(None)
 }
 
-pub fn on_check_issue_result(response: CallResult<HttpResponse>,) -> Result<(Option<String>, Option<String>), Box<dyn std::error::Error>>{
-    let r = response.map_err(|e|e.to_string())?;
+pub(crate) fn on_checking_issue_result(
+    response: CallResult<HttpResponse>,
+) -> Result<(Option<String>, Option<String>), Box<dyn std::error::Error>> {
+    let r = response.map_err(|e| e.to_string())?;
     let response: RpcResponse<ResultData> = serde_json::from_slice(&r.body)
         .map_err(|e| format!("unable to deserialize body from BSC rpc: {:?}", e))?;
-    vrs_core_sdk::println!("resp: {:?}",serde_json::to_string(&response));
+    vrs_core_sdk::println!("resp: {:?}", serde_json::to_string(&response));
     if let Some(result_data) = response.result {
         let logs = result_data.receipt.logs;
-
-        let first = logs.get(0).map(|l|l.address.clone());
-        let second = logs.get(1).map(|l|l.address.clone());
+        let first = logs.get(0).map(|l| l.address.clone());
+        let second = logs.get(1).map(|l| l.address.clone());
         return Ok((first, second));
     }
     Ok((None, None))
 }
 
-pub fn issuse_token(community: &Community, community_id: &CommunityId) -> Result<(), String> {
-    let contract_bytecode = hex::decode(BYTECODE.trim_start_matches("0x")).expect("invalid bytecode");
+pub fn issue_token(community: &Community, community_id: &CommunityId) -> Result<(), String> {
+    let contract_bytecode =
+        hex::decode(BYTECODE.trim_start_matches("0x")).expect("invalid bytecode");
     let token = community.token_info.clone();
     let contract_address = ethabi::ethereum_types::Address::from(token.contract.0);
     let constructor_args = ethabi::encode(&[
-            Token::String(token.name.clone()),
-            Token::String(token.symbol.clone()),
-            Token::Uint(token.decimals.into()),
-            Token::Uint(token.total_issuance.into()),
-            Token::Bool(token.new_issue),
-            Token::Address(contract_address),
+        Token::String(token.name.clone()),
+        Token::String(token.symbol.clone()),
+        Token::Uint(token.decimals.into()),
+        Token::Uint(token.total_issuance.into()),
+        Token::Bool(token.new_issue),
+        Token::Address(contract_address),
     ]);
     let full_bytecode = [contract_bytecode, constructor_args].concat();
     let gas_price: Option<u64> = crate::find(GASPRICE_STORAGE_KEY.as_bytes()).unwrap_or_default();
-    let gas_price = gas_price.map(|s|U256::from(s));
+    let gas_price = gas_price.map(|s| U256::from(s));
     let addr = community.agent_pubkey.clone();
     let addr = Address::from_slice(addr.0.as_slice());
     let tx = TransactionRequest {
@@ -210,8 +207,13 @@ pub fn issuse_token(community: &Community, community_id: &CommunityId) -> Result
     };
     let tx = TypedTransaction::Legacy(tx);
     let sign_hash = tx.sighash();
-    let r = vrs_core_sdk::tss::tss_sign(CryptoType::EcdsaSecp256k1, community_id.to_be_bytes(), sign_hash.0).map_err(|e|e.to_string())?;
-    let v: u64 = r.last().unwrap().clone() as u64 + BSC_CHAIN_ID * 2 + 35 ;
+    let r = vrs_core_sdk::tss::tss_sign(
+        CryptoType::EcdsaSecp256k1,
+        community_id.to_be_bytes(),
+        sign_hash.0,
+    )
+    .map_err(|e| e.to_string())?;
+    let v: u64 = r.last().unwrap().clone() as u64 + BSC_CHAIN_ID * 2 + 35;
     let signature = Signature {
         v,
         r: U256::from_big_endian(&r[0..32]),
@@ -220,17 +222,21 @@ pub fn issuse_token(community: &Community, community_id: &CommunityId) -> Result
     let signed_tx = tx.rlp_signed(&signature);
     let raw = format!("0x{}", hex::encode(signed_tx.to_vec()));
     let id = send_raw_transaction(raw.as_str()).expect("send raw error");
-    trace(id, HttpCallType::SendIssueTx(community.id())).map_err(|e| e.to_string()).expect("send Issue tx error");
+    trace(id, HttpCallType::SendIssueTx(community.id()))
+        .map_err(|e| e.to_string())
+        .expect("send Issue tx error");
     Ok(())
 }
 
-pub(crate) fn check_gas_price( response: CallResult<HttpResponse>,) -> Result<Option<u64>, Box<dyn std::error::Error>> {
+pub(crate) fn on_checking_gas_price(
+    response: CallResult<HttpResponse>,
+) -> Result<Option<u64>, Box<dyn std::error::Error>> {
     let response = response.map_err(|e| e.to_string())?;
     let response: RpcResponse<String> = serde_json::from_slice(&response.body)
         .map_err(|e| format!("unable to deserialize body from BSC rpc: {:?}", e))?;
     if let Some(result_data) = response.result {
-        let price = u64::from_str_radix(&result_data[2..],16)?;
-        return Ok(Some(price))
+        let price = u64::from_str_radix(&result_data[2..], 16)?;
+        return Ok(Some(price));
     }
     Ok(None)
 }
@@ -252,15 +258,16 @@ pub fn query_gas_price() -> Result<u64, String> {
         },
         body: serde_json::to_vec(&body).expect("json;qed"),
     })
-        .map_err(|e| e.to_string())?;
+    .map_err(|e| e.to_string())?;
     Ok(response)
 }
 
-pub fn untrace_issue_tx(
-                        response: CallResult<HttpResponse>,) -> Result<Option<TxHash>, Box<dyn std::error::Error>> {
+pub(crate) fn on_issuing_tx(
+    response: CallResult<HttpResponse>,
+) -> Result<Option<TxHash>, Box<dyn std::error::Error>> {
     let response = response.map_err(|e| e.to_string())?;
     let resp = String::from_utf8(response.body).map_err(|e| e.to_string())?;
-    vrs_core_sdk::println!("send issue result: {}", &resp );
+    vrs_core_sdk::println!("send issue result: {}", &resp);
     let response: crate::agent::bsc::RpcResponse<String> = serde_json::from_str(&resp)
         .map_err(|e| format!("unable to deserialize body from BSC rpc: {:?}", e))?;
     if let Some(result_data) = response.result {

@@ -1,19 +1,22 @@
 extern crate core;
 
 mod agent;
+pub mod eth_types;
 mod nucleus;
 mod trie;
-pub mod eth_types;
 
+use crate::agent::rewards::generate_rewards;
+use crate::eth_types::Address;
+use crate::trie::to_reward_payload_key;
 use sha2::{Digest, Sha256};
-use vemodel::{Account, AccountData, AccountId, CommunityId, ContentId, Event, EventId, LlmVendor, RewardPayload};
+use vemodel::{
+    Account, AccountData, AccountId, Community, CommunityId, ContentId, Event, EventId, LlmVendor,
+    RewardPayload,
+};
 use vrs_core_sdk::{
     codec::{Decode, Encode},
     storage,
 };
-use crate::agent::rewards::generate_rewards;
-use crate::eth_types::Address;
-use crate::trie::to_reward_payload_key;
 
 pub const MIN_ACTIVATE_FEE: u128 = 2_000_000_000_000_000;
 pub const MIN_INVITE_FEE: u128 = 2_000_000_000_000_000;
@@ -53,6 +56,11 @@ pub(crate) fn from_llm_settings(
         }
         _ => Err("unsupported LLM vendor".to_string()),
     }
+}
+
+pub(crate) fn try_find_community(community_id: CommunityId) -> Result<Community, String> {
+    let key = crate::trie::to_community_key(community_id);
+    crate::find::<Community>(&key)?.ok_or("Community not found".to_string())
 }
 
 pub(crate) fn find<T: Decode>(key: &[u8]) -> Result<Option<T>, String> {
@@ -133,9 +141,11 @@ pub(crate) fn get_account_info(account_id: AccountId) -> Result<Account, String>
     }
 }
 
-pub(crate) fn get_rewards(community_id: CommunityId, account_id: AccountId) -> Vec<RewardPayload>{
+pub(crate) fn get_rewards(community_id: CommunityId, account_id: AccountId) -> Vec<RewardPayload> {
     let key = to_reward_payload_key(community_id, account_id);
-    let v: Vec<RewardPayload> = crate::find(key.as_ref()).unwrap_or_default().unwrap_or_default();
+    let v: Vec<RewardPayload> = crate::find(key.as_ref())
+        .unwrap_or_default()
+        .unwrap_or_default();
     v
 }
 
@@ -169,8 +179,6 @@ pub(crate) fn transfer(
     to: AccountId,
     amount: u64,
 ) -> Result<(), String> {
-
-
     let from_key = trie::to_balance_key(community_id.clone(), from);
     let from_balance = storage::get(&from_key)
         .map_err(|e| e.to_string())?
@@ -191,9 +199,12 @@ pub(crate) fn transfer(
     storage::put(&to_key, (to_balance + amount).encode()).map_err(|e| e.to_string())?;
     let community_key = trie::to_community_key(community_id);
     let community = crate::find(community_key.as_slice()).unwrap().unwrap();
-    if let Some(reward) = generate_rewards(Address::from(to.0.clone()), amount as u128, &community) {
+    if let Some(reward) = generate_rewards(Address::from(to.0.clone()), amount as u128, &community)
+    {
         let key = to_reward_payload_key(community_id, to.clone());
-        let mut v: Vec<RewardPayload> = crate::find(key.as_ref()).unwrap_or_default().unwrap_or_default();
+        let mut v: Vec<RewardPayload> = crate::find(key.as_ref())
+            .unwrap_or_default()
+            .unwrap_or_default();
         v.push(reward);
         crate::save(key.as_slice(), &v);
     }
