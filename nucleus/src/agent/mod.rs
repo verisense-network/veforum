@@ -117,7 +117,7 @@ fn untrace(
                             crate::save(&trie::to_community_key(community_id), &community)?;
                             let mut account = get_account_info(community.creator)?;
                             account.last_transfer_block = tx.block_number;
-                            crate::save(&trie::to_account_key(community.creator), &account)?;
+                            crate::save(&trie::to_account_key(community.creator), &AccountData::Pubkey(account))?;
                         }
                     }
                     _ => {}
