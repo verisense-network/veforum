@@ -61,7 +61,7 @@ pub enum HttpCallType {
     CheckingActivateTx(CommunityId),
     SendIssueTx(CommunityId),
     QueryBscGasPrice,
-    QueryIssueResult(CommunityId),
+    QueryIssueResult(CommunityId, String),
     CheckingInviteTx(CommunityId),
 }
 
@@ -133,50 +133,31 @@ fn untrace(
             }
         }
         HttpCallType::SendIssueTx(community_id) => match bsc::on_issuing_tx(response) {
-            Ok(tx) => match tx {
-                None => {
-                    // if the issue's txid not found, revert the status to WaitingTx
-                    let mut community = crate::try_find_community(community_id)?;
-                    community.status = WaitingTx(MIN_ACTIVATE_FEE);
-                    crate::save(&to_community_key(community_id), &community)?;
-                }
-                Some(tx) => {
-                    let _ = set_timer!(
-                        std::time::Duration::from_secs(5),
-                        check_issue_token_tx,
-                        community_id,
-                        tx.to_string()
-                    );
-                    // set a timer to periodically check the tx status
-                    // let mut v: Vec<(CommunityId, H256, u64)> =
-                    //     crate::find(PENDING_ISSUE_KEY.as_bytes())
-                    //         .unwrap_or_default()
-                    //         .unwrap_or_default();
-                    // v.push((community, tx, vrs_core_sdk::timer::now()));
-                    // let _ = crate::save(PENDING_ISSUE_KEY.as_bytes(), &v);
-                    // let key = to_community_key(community);
-                    // let mut communityo =
-                    //     crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
-                    // communityo.status = TokenIssued(format!("0x{}", hex::encode(tx.0.as_slice())));
-                    // crate::save(&key, &communityo)?;
-                    // crate::save_event(Event::CommunityUpdated(communityo.id()))?;
-                }
-            },
-            Err(e) => {
-                vrs_core_sdk::println!("untrace issue tx error: {}", e.to_string());
+            Ok(Some(tx)) => {
+                let mut community = try_find_community(community_id)?;
+                community.status = CommunityStatus::TokenIssued(tx.to_string());
+                crate::save(&trie::to_community_key(community_id), &community)?;
+                let _ = set_timer!(
+                    std::time::Duration::from_secs(5),
+                    check_issue_token_tx,
+                    community_id,
+                    tx.to_string()
+                );
+            }
+            _ => {
                 let mut community = crate::try_find_community(community_id)?;
                 community.status = WaitingTx(MIN_ACTIVATE_FEE);
                 crate::save(&to_community_key(community_id), &community)?;
             }
         },
-        HttpCallType::QueryIssueResult(community_id) => {
+        HttpCallType::QueryIssueResult(community_id, tx) => {
             match bsc::on_checking_issue_result(response) {
                 Ok((Some(fund_contract), token_contract)) => {
                     let mut community = crate::try_find_community(community_id)?;
                     let contract_addr = AccountId::from_str(fund_contract.as_str())?;
                     community.agent_contract = Some(contract_addr);
                     if community.token_info.new_issue {
-                        community.token_info.contract = token_addr
+                        community.token_info.contract = token_contract
                             .map(|c| AccountId::from_str(c.as_str()).unwrap_or(H160([0u8; 20])))
                             .unwrap_or(H160([0u8; 20]));
                     }
@@ -191,7 +172,12 @@ fn untrace(
                     crate::save_event(Event::CommunityUpdated(community.id()))?;
                 }
                 _ => {
-                    vrs_core_sdk::println!("untrace query issue result err: {}", e.to_string());
+                    let _ = set_timer!(
+                        std::time::Duration::from_secs(5),
+                        check_issue_token_tx,
+                        community_id,
+                        tx,
+                    );
                 }
             }
         }
@@ -364,7 +350,7 @@ pub(crate) fn check_issue_token_tx(
     tx_hash: String,
 ) -> Result<(), String> {
     let id = bsc::initiate_query_bsc_transaction(&tx_hash)?;
-    trace(id, HttpCallType::QueryIssueResult(community_id)).map_err(|e| e.to_string())
+    trace(id, HttpCallType::QueryIssueResult(community_id, tx_hash)).map_err(|e| e.to_string())
 }
 
 pub(crate) fn init_agent(community: &Community) -> Result<(), String> {

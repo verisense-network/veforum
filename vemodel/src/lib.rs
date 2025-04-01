@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 
 pub type CommunityId = u32;
 pub type EventId = u64;
@@ -496,9 +496,9 @@ pub mod args {
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
     pub struct InviteUserArgs {
         pub community: String,
-        pub invitee: AccountId
+        pub invitee: AccountId,
     }
-    
+
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
     pub struct PostCommentArg {
         pub thread: ContentId,
