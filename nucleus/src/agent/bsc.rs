@@ -165,7 +165,6 @@ pub(crate) fn on_checking_issue_result(
     let r = response.map_err(|e| e.to_string())?;
     let response: RpcResponse<ResultData> = serde_json::from_slice(&r.body)
         .map_err(|e| format!("unable to deserialize body from BSC rpc: {:?}", e))?;
-    vrs_core_sdk::println!("resp: {:?}", serde_json::to_string(&response));
     if let Some(result_data) = response.result {
         let logs = result_data.receipt.logs;
         let first = logs.get(0).map(|l| l.address.clone());

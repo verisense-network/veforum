@@ -73,7 +73,7 @@ pub fn on_response(id: u64, response: CallResult<HttpResponse>) {
         Ok(Some(v)) => {
             if let Ok(call_type) = HttpCallType::decode(&mut &v[..]) {
                 if let Err(e) = untrace(&key, call_type, response) {
-                    vrs_core_sdk::println!("{}", e);
+                    vrs_core_sdk::println!("untrace error>>>>>>>>>>>>.:{}", e);
                 }
             }
         }
@@ -103,6 +103,7 @@ fn untrace(
     match call_type {
         HttpCallType::QueryBscGasPrice => {
             if let Ok(Some(u)) = bsc::on_checking_gas_price(response) {
+                vrs_core_sdk::println!("update bsc gasprice to {}", u);
                 crate::save(&trie::GASPRICE_STORAGE_KEY.to_be_bytes(), &u)?;
             }
         }
@@ -163,8 +164,10 @@ fn untrace(
                     .map_err(|e| e.to_string())?;
                     crate::agent::init_agent(&community)?;
                     community.status = CommunityStatus::Active;
-                    crate::save(&key, &community)?;
+                    let community_key = to_community_key(community.id());
+                    crate::save(&community_key, &community)?;
                     crate::save_event(Event::CommunityUpdated(community.id()))?;
+
                 }
                 _ => {
                     let _ = set_timer!(
@@ -441,6 +444,7 @@ fn call_tool(on: &Community, func: &str, params: &str) -> Result<String, String>
 }
 
 pub(crate) fn check_transfering(community: &Community, tx: String) -> Result<(), String> {
+    vrs_core_sdk::println!(">>>>>>>>>>>>>>>>>>>>>>{:?}", serde_json::to_string(community));
     match community.status.clone() {
         CommunityStatus::PendingCreation | CommunityStatus::Active => Ok(()),
         CommunityStatus::TokenIssued(_) => Ok(()),
