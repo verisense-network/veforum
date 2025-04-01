@@ -1,16 +1,16 @@
-use crate::eth_types::{H256, U256, U64};
-use serde::{Deserialize, Serialize};
-use crate::eth_types::Address;
 use crate::eth_types::bytes::Bytes;
 use crate::eth_types::ens::NameOrAddress;
 use crate::eth_types::hash::keccak256;
 use crate::eth_types::signature::Signature;
 use crate::eth_types::transaction::TransactionRequest;
 use crate::eth_types::typed_transaction::TypedTransaction::Legacy;
+use crate::eth_types::Address;
+use crate::eth_types::{H256, U256, U64};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
-#[cfg_attr(not(feature = "legacy"), serde(tag = "type"))]
-#[cfg_attr(feature = "legacy", serde(untagged))]
+// #[cfg_attr(not(feature = "legacy"), serde(tag = "type"))]
+// #[cfg_attr(feature = "legacy", serde(untagged))]
 pub enum TypedTransaction {
     // 0x00
     #[serde(rename = "0x00", alias = "0x0")]
@@ -34,7 +34,6 @@ impl TypedTransaction {
     pub fn to(&self) -> Option<&NameOrAddress> {
         match self {
             Legacy(inner) => inner.to.as_ref(),
-
         }
     }
 
@@ -46,7 +45,6 @@ impl TypedTransaction {
         let to = to.into();
         match self {
             Legacy(inner) => inner.to = Some(to),
-
         };
         self
     }
@@ -61,7 +59,6 @@ impl TypedTransaction {
         let nonce = nonce.into();
         match self {
             Legacy(inner) => inner.nonce = Some(nonce),
-
         };
         self
     }
@@ -76,7 +73,6 @@ impl TypedTransaction {
         let value = value.into();
         match self {
             Legacy(inner) => inner.value = Some(value),
-
         };
         self
     }
@@ -104,7 +100,6 @@ impl TypedTransaction {
     pub fn gas_price(&self) -> Option<U256> {
         match self {
             Legacy(inner) => inner.gas_price,
-
         }
     }
 
@@ -112,7 +107,6 @@ impl TypedTransaction {
         let gas_price = gas_price.into();
         match self {
             Legacy(inner) => inner.gas_price = Some(gas_price),
-
         };
         self
     }
@@ -120,7 +114,6 @@ impl TypedTransaction {
     pub fn chain_id(&self) -> Option<U64> {
         match self {
             Legacy(inner) => inner.chain_id,
-
         }
     }
 
@@ -128,7 +121,6 @@ impl TypedTransaction {
         let chain_id = chain_id.into();
         match self {
             Legacy(inner) => inner.chain_id = Some(chain_id),
-
         };
         self
     }
@@ -136,15 +128,12 @@ impl TypedTransaction {
     pub fn data(&self) -> Option<&Bytes> {
         match self {
             Legacy(inner) => inner.data.as_ref(),
-
         }
     }
-
 
     pub fn set_data(&mut self, data: Bytes) -> &mut Self {
         match self {
             Legacy(inner) => inner.data = Some(data),
-
         };
         self
     }
@@ -155,7 +144,6 @@ impl TypedTransaction {
             Legacy(ref tx) => {
                 encoded.extend_from_slice(tx.rlp_signed(signature).as_ref());
             }
-
         };
         encoded.into()
     }
@@ -193,7 +181,6 @@ impl TypedTransaction {
     }
 }
 
-
 impl From<TransactionRequest> for TypedTransaction {
     fn from(src: TransactionRequest) -> TypedTransaction {
         TypedTransaction::Legacy(src)
@@ -212,7 +199,6 @@ impl TypedTransaction {
         }
     }
 }
-
 
 impl TypedTransaction {
     fn into_legacy(self) -> TransactionRequest {

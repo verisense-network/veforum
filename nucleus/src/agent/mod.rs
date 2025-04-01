@@ -4,16 +4,10 @@ pub(crate) mod openai;
 pub mod rewards;
 // pub(crate) mod solana;
 
-use primitive_types::H256;
-use std::str::FromStr;
-
-// use crate::agent::bsc::{check_gas_price, issue_token, on_check_issue_result, untrace_issue_tx};
-use crate::trie::{to_community_key, to_invitecode_amt_key, to_permission_key};
-use crate::{
-    find, get_account_info, save, trie, try_find_community, MIN_ACTIVATE_FEE, MIN_INVITE_FEE,
-};
+use crate::trie::{to_community_key, to_invitecode_amt_key};
+use crate::{find, get_account_info, save, trie, try_find_community, MIN_ACTIVATE_FEE};
 use serde::de::DeserializeOwned;
-use vemodel::CommunityStatus::{TokenIssued, WaitingTx};
+use std::str::FromStr;
 use vemodel::*;
 use vrs_core_sdk::{
     callback, codec::*, error::RuntimeError, http::*, set_timer, storage, timer, CallResult,
@@ -21,8 +15,6 @@ use vrs_core_sdk::{
 
 pub const OPENAI: [u8; 4] = *b"opai";
 pub const DEEPSEEK: [u8; 4] = *b"dpsk";
-pub const GASPRICE_STORAGE_KEY: &str = "gas_price";
-pub const PENDING_ISSUE_KEY: &str = "pending_issue";
 
 pub const DEEPSEEK_API_HOST: &'static str = "https://api.deepseek.ai";
 
@@ -110,7 +102,7 @@ fn untrace(
     match call_type {
         HttpCallType::QueryBscGasPrice => {
             if let Ok(Some(u)) = bsc::on_checking_gas_price(response) {
-                crate::save(GASPRICE_STORAGE_KEY.as_bytes(), &u)?;
+                crate::save(&trie::GASPRICE_STORAGE_KEY.to_be_bytes(), &u)?;
             }
         }
         HttpCallType::CheckingActivateTx(community_id) => {
@@ -118,12 +110,14 @@ fn untrace(
             let agent_addr = community.agent_pubkey.to_string();
             match bsc::on_checking_bnb_transfer(&agent_addr, response).map_err(|e| e.to_string()) {
                 Ok(Some(tx)) => match community.status.clone() {
-                    WaitingTx(min_fee) => {
+                    CommunityStatus::WaitingTx(min_fee) => {
                         if tx.amount_received >= min_fee {
                             bsc::issue_token(&community, &community_id)?;
                             community.status = CommunityStatus::PendingCreation;
                             crate::save(&trie::to_community_key(community_id), &community)?;
-                            // TODO update the account's last_transfer to the tx block
+                            let mut account = get_account_info(community.creator)?;
+                            account.last_transfer_block = tx.block_number;
+                            crate::save(&trie::to_account_key(community.creator), &account)?;
                         }
                     }
                     _ => {}
@@ -146,7 +140,7 @@ fn untrace(
             }
             _ => {
                 let mut community = crate::try_find_community(community_id)?;
-                community.status = WaitingTx(MIN_ACTIVATE_FEE);
+                community.status = CommunityStatus::WaitingTx(MIN_ACTIVATE_FEE);
                 crate::save(&to_community_key(community_id), &community)?;
             }
         },
@@ -297,32 +291,27 @@ fn untrace(
                 crate::save_event(Event::CommentPosted(id))?;
             }
         }
-
         HttpCallType::CheckingInviteTx(community_id) => {
-            let key = crate::trie::to_community_key(community_id);
-            let community =
-                crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
+            let community = crate::try_find_community(community_id)?;
             let agent_addr = community.agent_pubkey.to_string();
-            match bsc::on_checking_bnb_transfer(&agent_addr, response)
-                .map_err(|e| e.to_string())
-                .inspect_err(|e| println!("failed to resolve solana RPC response, {:?}", e))
-            {
+            match bsc::on_checking_bnb_transfer(&agent_addr, response).map_err(|e| e.to_string()) {
                 Ok(Some(tx)) => {
                     let sender = AccountId::from_str(tx.sender.as_str())?;
-                    if tx.amount_received >= MIN_INVITE_FEE && sender == community.creator {
+                    if sender == community.creator {
                         let mut account = get_account_info(sender.clone())?;
-                        if account.max_invite_block < tx.block_number {
-                            let new_code_amount = (tx.amount_received / MIN_INVITE_FEE) as u64;
-                            account.max_invite_block = tx.block_number;
-                            let key = trie::to_account_key(sender);
-                            storage::put(&key, AccountData::Pubkey(account).encode())
-                                .map_err(|e| e.to_string())?;
-                            let invite_amount_key = to_invitecode_amt_key(community_id, sender);
-                            let old_amount = find::<u64>(invite_amount_key.as_ref())
-                                .unwrap_or_default()
-                                .unwrap_or_default();
-                            save(invite_amount_key.as_ref(), &(old_amount + new_code_amount))
-                                .expect("error to save invite code amount");
+                        account.last_transfer_block = tx.block_number;
+                        if account.last_transfer_block < tx.block_number {
+                            if let CommunityMode::InviteOnly(p) = community.mode {
+                                let key = trie::to_account_key(sender);
+                                storage::put(&key, AccountData::Pubkey(account).encode())
+                                    .map_err(|e| e.to_string())?;
+                                let increased = (tx.amount_received / p) as u64;
+                                let invite_amount_key = to_invitecode_amt_key(community_id, sender);
+                                let tickets = find::<u64>(invite_amount_key.as_ref())?
+                                    .unwrap_or_default()
+                                    + increased;
+                                save(invite_amount_key.as_ref(), &tickets)?;
+                            }
                         };
                     }
                 }
@@ -453,15 +442,7 @@ fn call_tool(on: &Community, func: &str, params: &str) -> Result<String, String>
 pub(crate) fn check_transfering(community: &Community, tx: String) -> Result<(), String> {
     match community.status.clone() {
         CommunityStatus::PendingCreation | CommunityStatus::Active => Ok(()),
-        TokenIssued(issue_tx) => {
-            let mut v: Vec<(CommunityId, H256, u64)> = crate::find(PENDING_ISSUE_KEY.as_bytes())
-                .unwrap_or_default()
-                .unwrap_or_default();
-            let tx = H256::from_str(issue_tx.trim_start_matches("0x")).unwrap();
-            v.push((community.id(), tx, timer::now()));
-            let _ = crate::save(PENDING_ISSUE_KEY.as_bytes(), &v);
-            Ok(())
-        }
+        CommunityStatus::TokenIssued(_) => Ok(()),
         CommunityStatus::WaitingTx(_)
         | CommunityStatus::Frozen(_)
         | CommunityStatus::CreateFailed(_) => {

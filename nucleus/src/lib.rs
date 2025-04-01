@@ -197,18 +197,14 @@ pub(crate) fn transfer(
     // TODO we need transaction
     storage::put(&from_key, (from_balance - amount).encode()).map_err(|e| e.to_string())?;
     storage::put(&to_key, (to_balance + amount).encode()).map_err(|e| e.to_string())?;
-    let community_key = trie::to_community_key(community_id);
-    let community = crate::find(community_key.as_slice()).unwrap().unwrap();
+    let community = crate::try_find_community(community_id)?;
     if let Some(reward) = generate_rewards(Address::from(to.0.clone()), amount as u128, &community)
     {
         let key = to_reward_payload_key(community_id, to.clone());
-        let mut v: Vec<RewardPayload> = crate::find(key.as_ref())
-            .unwrap_or_default()
-            .unwrap_or_default();
+        let mut v: Vec<RewardPayload> = crate::find(key.as_ref())?.unwrap_or_default();
         v.push(reward);
-        crate::save(key.as_slice(), &v);
+        crate::save(key.as_slice(), &v)?;
     }
-
     Ok(())
 }
 

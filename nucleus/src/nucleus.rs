@@ -1,12 +1,9 @@
-use crate::agent::bsc::initiate_query_bsc_transaction;
-use crate::agent::{bsc, trace, HttpCallType, PENDING_ISSUE_KEY};
-use crate::trie::{to_community_key, to_invitecode_amt_key, to_permission_key};
-use crate::{find, name_to_community_id, save, trie, validate_write_permission, MIN_INVITE_FEE};
+use crate::agent::{bsc, trace, HttpCallType};
+use crate::trie::{to_invitecode_amt_key, to_permission_key};
+use crate::{trie, validate_write_permission};
 use parity_scale_codec::{Decode, Encode};
-use primitive_types::H256;
 use std::str::FromStr;
 use std::time::Duration;
-use vemodel::CommunityStatus::TokenIssued;
 use vemodel::{args::*, crypto::*, *};
 use vrs_core_sdk::{get, init, post, set_timer, storage, timer, tss};
 
@@ -20,7 +17,6 @@ pub fn set_llm_key(key: String) -> Result<(), String> {
 
 #[post]
 pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<CommunityId, String> {
-    vrs_core_sdk::println!(">>>>>>>>>>>>>>>>.. {:?}", &args.payload);
     let nonce = crate::get_nonce(args.signer)?;
     args.ensure_signed(nonce)?;
     crate::incr_nonce(args.signer, None)?;
@@ -33,6 +29,7 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
     payload.validate()?;
     let id = crate::name_to_community_id(&payload.name)
         .ok_or("Community name should only contains `a-zA-Z0-9_-` with length <= 24".to_string())?;
+
     let key = trie::to_community_key(id);
     let community = crate::find::<Community>(&key)?;
     community
@@ -41,7 +38,7 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
         .ok_or("community already exists".to_string())?;
     let CreateCommunityArg {
         name,
-        private,
+        mode,
         logo,
         token,
         slug,
@@ -75,8 +72,7 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
     let community = Community {
         id: hex::encode(id.encode()),
         name: name.clone(),
-        private,
-        opening_join: false,
+        mode,
         creator_bnb_benefit: 0,
         platform_bnb_benefit: 0,
         logo,
@@ -109,19 +105,6 @@ pub fn activate_community(arg: ActivateCommunityArg) -> Result<(), String> {
     Ok(())
 }
 
-#[get]
-pub fn check_invite(community_id: CommunityId, user: AccountId) -> bool {
-    let community_key = to_community_key(community_id.clone());
-    let Ok(Some(c)) = find::<Community>(&community_key) else {
-        return false;
-    };
-    if c.private && user != c.creator {
-        validate_write_permission(community_id, user).is_ok()
-    } else {
-        true
-    }
-}
-
 #[post]
 pub fn invite_user(args: SignedArgs<InviteUserArgs>) -> Result<(), String> {
     let account = crate::get_account_info(args.signer)?;
@@ -130,61 +113,45 @@ pub fn invite_user(args: SignedArgs<InviteUserArgs>) -> Result<(), String> {
     let content = args.payload;
     let community_id = crate::name_to_community_id(&content.community)
         .ok_or("Invalid community name".to_string())?;
-    let community_key = to_community_key(community_id);
-    let Ok(Some(community)) = crate::find::<Community>(community_key.as_slice()) else {
-        return Err("community not found".to_string());
-    };
-    if !community.private {
-        return Err("community is public, Not need to invite".to_string());
+    let community = crate::try_find_community(community_id)?;
+    if !matches!(community.mode, CommunityMode::InviteOnly(_)) {
+        return Err("Community is not InviteOnly mode.".to_string());
     }
     if args.signer != community.creator {
-        return Err("Creator can invite users only".to_string());
+        return Err("Only the community creator can invite users".to_string());
     }
-
     let invite_code_amount_key = to_invitecode_amt_key(community_id, args.signer);
-    let invite_code_amount: u64 = find(invite_code_amount_key.as_ref())
-        .unwrap_or_default()
-        .unwrap_or_default();
+    let invite_code_amount: u64 = crate::find(invite_code_amount_key.as_ref())?.unwrap_or_default();
     if invite_code_amount == 0 {
-        return Err("you have not enough invite code".to_string());
+        return Err("you don't have enough invite codes".to_string());
     }
-    save(invite_code_amount_key.as_ref(), &(invite_code_amount - 1));
+    crate::save(invite_code_amount_key.as_ref(), &(invite_code_amount - 1))?;
     let permission_key = to_permission_key(community_id, content.invitee);
     let _ = crate::save(permission_key.as_ref(), &1u32);
     Ok(())
 }
 
 #[get]
-pub fn invitecode_amount(community_id: CommunityId, user: AccountId) -> u64 {
+pub fn get_invite_tickets(community_id: CommunityId, user: AccountId) -> u64 {
     let invite_code_amount_key = to_invitecode_amt_key(community_id, user);
-    find(invite_code_amount_key.as_ref())
+    crate::find(invite_code_amount_key.as_ref())
         .unwrap_or_default()
         .unwrap_or_default()
 }
 
 #[post]
-pub fn generate_invite_codes(args: SignedArgs<GenerateInviteCodeArgs>) -> Result<(), String> {
-    let account = crate::get_account_info(args.signer)?;
-    args.ensure_signed(account.nonce)?;
-    crate::incr_nonce(args.signer, None)?;
-    let content = args.payload;
-    let community_id = crate::name_to_community_id(&content.community)
-        .ok_or("Invalid community name".to_string())?;
-    let community_key = to_community_key(community_id);
-    let Ok(Some(community)) = crate::find::<Community>(community_key.as_slice()) else {
-        return Err("community not found".to_string());
-    };
-    if !community.private {
-        return Err("community is public, Not need to invite".to_string());
+pub fn generate_invite_tickets(args: GenerateInviteTicketArgs) -> Result<(), String> {
+    let community_id =
+        crate::name_to_community_id(&args.community).ok_or("Invalid community name".to_string())?;
+    let community = crate::try_find_community(community_id)?;
+    match community.mode {
+        CommunityMode::InviteOnly(_) => {
+            let id = bsc::initiate_query_bsc_transaction(&args.tx)?;
+            trace(id, HttpCallType::CheckingInviteTx(community.id())).map_err(|e| e.to_string())?;
+            Ok(())
+        }
+        _ => Err("Community is not invite only".to_string()),
     }
-    if args.signer != community.creator {
-        return Err("Creator can invite users only".to_string());
-    }
-
-    let tx_hash = content.tx.trim().to_string();
-    let id = bsc::initiate_query_bsc_transaction(&tx_hash)?;
-    trace(id, HttpCallType::CheckingInviteTx(community.id())).map_err(|e| e.to_string())?;
-    Ok(())
 }
 
 #[post]
@@ -212,13 +179,18 @@ pub fn post_thread(args: SignedArgs<PostThreadArg>) -> Result<ContentId, String>
     let text = crate::decompress(&content)?;
     let community_id =
         crate::name_to_community_id(&community).ok_or("Invalid community name".to_string())?;
-    let key = trie::to_community_key(community_id);
-    let community = crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
+    let community = crate::try_find_community(community_id)?;
     (community.status == CommunityStatus::Active)
         .then(|| ())
-        .ok_or("Posting threads to this community is forbidden right now!".to_string())?;
-    if community.private && args.signer != community.creator {
-        validate_write_permission(community_id, args.signer)?;
+        .ok_or("The community is inactive.".to_string())?;
+    match community.mode {
+        CommunityMode::Public => {
+            let key = trie::to_permission_key(community_id, account.address);
+            crate::save(&key, &1u32.encode())?;
+        }
+        _ => {
+            validate_write_permission(community_id, args.signer)?;
+        }
     }
     let id = crate::allocate_thread_id(community_id)?;
     let key = trie::to_content_key(id);
@@ -263,13 +235,15 @@ pub fn post_comment(args: SignedArgs<PostCommentArg>) -> Result<ContentId, Strin
     } = payload;
     let text = crate::decompress(&content)?;
     let community_id = (thread_id >> 64) as u32;
-    let key = trie::to_community_key(community_id);
-    let community = crate::find::<Community>(&key)?.ok_or("Community not found".to_string())?;
+    let community = crate::try_find_community(community_id)?;
     (community.status == CommunityStatus::Active)
         .then(|| ())
-        .ok_or("Posting comments to this community is forbidden right now!".to_string())?;
-    if community.private && args.signer != community.creator {
-        validate_write_permission(community_id, args.signer)?;
+        .ok_or("The community is inactive.".to_string())?;
+    match community.mode {
+        CommunityMode::Public => {}
+        _ => {
+            validate_write_permission(community_id, args.signer)?;
+        }
     }
     let thread_key = trie::to_content_key(thread_id);
     let thread = crate::find::<Thread>(&thread_key)?.ok_or("Thread not found".to_string())?;
@@ -302,24 +276,6 @@ pub fn get_community(id: CommunityId) -> Result<Option<Community>, String> {
     let mut community = crate::find::<Community>(&key)?;
     community.as_mut().map(|c| c.mask());
     Ok(community)
-}
-
-#[get]
-pub fn get_community1(id: String) -> Result<Option<Community>, String> {
-    vrs_core_sdk::println!(">>>>>>>>>>>. {}", id.as_str());
-
-    let id = name_to_community_id(id.as_str()).unwrap();
-    vrs_core_sdk::println!("xxx>>>>>>>>>>>.id  {}", id);
-    let key = trie::to_community_key(id);
-    let mut community = crate::find::<Community>(&key)?;
-    vrs_core_sdk::println!("jsoon >>>>>>>>>>>>>>: {:?}", &community);
-    community.as_mut().map(|c| c.mask());
-    Ok(community)
-}
-
-#[get]
-pub fn get_invite_fee() -> u128 {
-    MIN_INVITE_FEE
 }
 
 #[get]
@@ -440,9 +396,7 @@ fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u64), Str
     let suffix: [u8; 4] = *(&key[28..].try_into().expect("qed"));
     let community_id = CommunityId::from_be_bytes(suffix);
     let balance = u64::decode(&mut &value[..]).map_err(|e| e.to_string())?;
-    let community_key = trie::to_community_key(community_id);
-    let mut community =
-        crate::find::<Community>(&community_key)?.ok_or("Community not found".to_string())?;
+    let mut community = crate::try_find_community(community_id)?;
     community.prompt = Default::default();
     Ok((community, balance))
 }
@@ -450,7 +404,6 @@ fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u64), Str
 #[init]
 pub fn init() {
     set_timer!(Duration::from_secs(5), query_bsc_gas_price).expect("set timer failed");
-    set_timer!(Duration::from_secs(3), fetch_token_conctact_addr).expect("set timer failed");
 }
 
 #[timer]
@@ -461,31 +414,4 @@ pub fn query_bsc_gas_price() {
         .map_err(|e| e.to_string())
         .expect("query price error");
     set_timer!(std::time::Duration::from_secs(600), query_bsc_gas_price).expect("set timer failed");
-}
-
-#[timer]
-pub fn fetch_token_conctact_addr() {
-    let pending_issues: Result<Option<Vec<(CommunityId, H256, u64)>>, String> =
-        crate::find(PENDING_ISSUE_KEY.as_bytes());
-    if let Ok(Some(v)) = pending_issues {
-        let mut failed_v = vec![];
-        for (community_id, tx_hash, add_time) in v {
-            if add_time + 300 < timer::now() {
-                continue;
-            }
-            let key = crate::trie::to_community_key(community_id);
-            let Ok(Some(community)) = crate::find::<Community>(&key) else {
-                continue;
-            };
-            if let TokenIssued(_tx) = community.status {
-                failed_v.push((community_id, tx_hash, add_time));
-            }
-            let tx_hash = format!("0x{}", hex::encode(tx_hash.0.as_slice()));
-            if let Ok(id) = initiate_query_bsc_transaction(tx_hash.as_str()) {
-                let _ = trace(id, HttpCallType::QueryIssueResult(community_id));
-            }
-            crate::save(PENDING_ISSUE_KEY.as_bytes(), &failed_v).expect("save pending key failed");
-        }
-    }
-    set_timer!(Duration::from_secs(20), fetch_token_conctact_addr).expect("set timer failed");
 }

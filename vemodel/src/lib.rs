@@ -1,12 +1,10 @@
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
 
 pub type CommunityId = u32;
 pub type EventId = u64;
 pub type RewardId = u64;
-
 pub type ContentId = u128;
 
 pub fn is_comment(content_id: ContentId) -> bool {
@@ -47,11 +45,17 @@ pub enum CommunityStatus {
     TokenIssued(String),
 }
 
+#[derive(Debug, Decode, Clone, Encode, Deserialize, Serialize, Eq, PartialEq)]
+pub enum CommunityMode {
+    Public,
+    InviteOnly(u128),
+    PayToJoin(u128),
+}
+
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
 pub struct Community {
     pub id: String,
-    pub private: bool,
-    pub opening_join: bool,
+    pub mode: CommunityMode,
     pub logo: String,
     pub name: String,
     pub slug: String,
@@ -245,7 +249,7 @@ impl serde::Serialize for H160 {
 pub struct Account {
     pub nonce: u64,
     pub address: H160,
-    pub max_invite_block: u64,
+    pub last_transfer_block: u64,
     pub alias: Option<String>,
     pub last_post_at: u64,
 }
@@ -263,7 +267,7 @@ impl Account {
         Self {
             nonce: 0,
             address,
-            max_invite_block: 0,
+            last_transfer_block: 0,
             alias: None,
             last_post_at: 0,
         }
@@ -426,7 +430,7 @@ pub mod args {
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
     pub struct CreateCommunityArg {
         pub name: String,
-        pub private: bool,
+        pub mode: CommunityMode,
         pub logo: String,
         pub token: TokenMetadataArg,
         pub slug: String,
@@ -488,7 +492,7 @@ pub mod args {
     }
 
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-    pub struct GenerateInviteCodeArgs {
+    pub struct GenerateInviteTicketArgs {
         pub community: String,
         pub tx: String,
     }

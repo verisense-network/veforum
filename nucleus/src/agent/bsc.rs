@@ -1,8 +1,5 @@
 //! generate by OpenAI
-use std::collections::BTreeMap;
-
-use crate::agent::contract::BYTECODE;
-use crate::agent::{trace, HttpCallType, GASPRICE_STORAGE_KEY};
+use crate::agent::{contract::BYTECODE, trace, HttpCallType};
 use crate::eth_types::bytes::Bytes;
 use crate::eth_types::signature::Signature;
 use crate::eth_types::transaction::TransactionRequest;
@@ -10,6 +7,7 @@ use crate::eth_types::typed_transaction::TypedTransaction;
 use crate::eth_types::{Address, TxHash, U256, U64};
 use ethabi::Token;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use vemodel::{Community, CommunityId};
 use vrs_core_sdk::tss::CryptoType;
 use vrs_core_sdk::{
@@ -191,7 +189,8 @@ pub fn issue_token(community: &Community, community_id: &CommunityId) -> Result<
         Token::Address(contract_address),
     ]);
     let full_bytecode = [contract_bytecode, constructor_args].concat();
-    let gas_price: Option<u64> = crate::find(GASPRICE_STORAGE_KEY.as_bytes()).unwrap_or_default();
+    let gas_price: Option<u64> =
+        crate::find(&crate::trie::GASPRICE_STORAGE_KEY.to_be_bytes()).unwrap_or_default();
     let gas_price = gas_price.map(|s| U256::from(s));
     let addr = community.agent_pubkey.clone();
     let addr = Address::from_slice(addr.0.as_slice());
