@@ -8,6 +8,7 @@ use crate::trie::{to_community_key, to_invitecode_amt_key};
 use crate::{find, get_account_info, save, trie, try_find_community, MIN_ACTIVATE_FEE};
 use serde::de::DeserializeOwned;
 use std::str::FromStr;
+use const_hex::ToHexExt;
 use vemodel::*;
 use vrs_core_sdk::{
     callback, codec::*, error::RuntimeError, http::*, set_timer, storage, timer, CallResult,
@@ -135,7 +136,7 @@ fn untrace(
                     std::time::Duration::from_secs(5),
                     check_issue_token_tx,
                     community_id,
-                    tx.to_string()
+                    tx.encode_hex_with_prefix()
                 );
             }
             _ => {
