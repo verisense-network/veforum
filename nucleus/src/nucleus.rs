@@ -1,6 +1,6 @@
 use crate::agent::{bsc, trace, HttpCallType};
-use crate::trie::{to_invitecode_amt_key, to_permission_key};
-use crate::{trie, validate_write_permission};
+use crate::trie::{to_community_key, to_invitecode_amt_key, to_permission_key};
+use crate::{save, trie, try_find_community, validate_write_permission};
 use parity_scale_codec::{Decode, Encode};
 use std::str::FromStr;
 use std::time::Duration;
@@ -90,6 +90,8 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
     };
     crate::save(&key, &community)?;
     crate::save_event(Event::CommunityCreated(id))?;
+    let permission_key = to_permission_key(id, signer);
+    save(&permission_key, &1u32)?;
     Ok(id)
 }
 
@@ -412,4 +414,9 @@ pub fn query_bsc_gas_price() {
         .map_err(|e| e.to_string())
         .expect("query price error");
     set_timer!(std::time::Duration::from_secs(600), query_bsc_gas_price).expect("set timer failed");
+}
+
+#[get]
+pub fn check_permission(community_id: CommunityId, user: AccountId) -> bool {
+    validate_write_permission(community_id, user).is_ok()
 }
