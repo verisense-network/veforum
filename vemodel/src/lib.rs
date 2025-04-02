@@ -493,7 +493,7 @@ pub mod args {
 
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
     pub struct GenerateInviteTicketArgs {
-        pub community: String,
+        pub community_id: CommunityId,
         pub tx: String,
     }
 

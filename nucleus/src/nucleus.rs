@@ -141,9 +141,7 @@ pub fn get_invite_tickets(community_id: CommunityId, user: AccountId) -> u64 {
 
 #[post]
 pub fn generate_invite_tickets(args: GenerateInviteTicketArgs) -> Result<(), String> {
-    let community_id =
-        crate::name_to_community_id(&args.community).ok_or("Invalid community name".to_string())?;
-    let community = crate::try_find_community(community_id)?;
+    let community = crate::try_find_community(args.community_id)?;
     match community.mode {
         CommunityMode::InviteOnly(_) => {
             let id = bsc::initiate_query_bsc_transaction(&args.tx)?;
