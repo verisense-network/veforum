@@ -48,7 +48,7 @@ pub enum CommunityStatus {
 #[derive(Debug, Decode, Clone, Encode, Deserialize, Serialize, Eq, PartialEq)]
 pub enum CommunityMode {
     Public,
-    InviteOnly(u128),
+    InviteOnly,
     PayToJoin(u128),
 }
 

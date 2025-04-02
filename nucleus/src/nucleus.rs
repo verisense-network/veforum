@@ -116,7 +116,7 @@ pub fn invite_user(args: SignedArgs<InviteUserArgs>) -> Result<(), String> {
     let community_id = crate::name_to_community_id(&content.community)
         .ok_or("Invalid community name".to_string())?;
     let community = crate::try_find_community(community_id)?;
-    if !matches!(community.mode, CommunityMode::InviteOnly(_)) {
+    if !matches!(community.mode, CommunityMode::InviteOnly) {
         return Err("Community is not InviteOnly mode.".to_string());
     }
     if args.signer != community.creator {
@@ -145,8 +145,8 @@ pub fn get_invite_tickets(community_id: CommunityId, user: AccountId) -> u64 {
 pub fn generate_invite_tickets(args: GenerateInviteTicketArgs) -> Result<(), String> {
     let community = crate::try_find_community(args.community_id)?;
     match community.mode {
-        CommunityMode::InviteOnly(_) => {
-            let id = bsc::initiate_query_bsc_transaction(&args.tx)?;
+        CommunityMode::InviteOnly => {
+            let id = bsc::initiate_query_bsc_transaction(&args.tx.trim())?;
             trace(id, HttpCallType::CheckingInviteTx(community.id())).map_err(|e| e.to_string())?;
             Ok(())
         }
@@ -419,4 +419,9 @@ pub fn query_bsc_gas_price() {
 #[get]
 pub fn check_permission(community_id: CommunityId, user: AccountId) -> bool {
     validate_write_permission(community_id, user).is_ok()
+}
+
+#[get]
+pub fn get_invite_fee() -> u128 {
+    MIN_INVITE_FEE
 }

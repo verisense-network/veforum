@@ -6,9 +6,9 @@ pub mod rewards;
 
 use crate::trie::{to_community_key, to_invitecode_amt_key};
 use crate::{find, get_account_info, save, trie, try_find_community, MIN_ACTIVATE_FEE};
+use const_hex::ToHexExt;
 use serde::de::DeserializeOwned;
 use std::str::FromStr;
-use const_hex::ToHexExt;
 use vemodel::*;
 use vrs_core_sdk::{
     callback, codec::*, error::RuntimeError, http::*, set_timer, storage, timer, CallResult,
@@ -119,7 +119,10 @@ fn untrace(
                             crate::save(&trie::to_community_key(community_id), &community)?;
                             let mut account = get_account_info(community.creator)?;
                             account.last_transfer_block = tx.block_number;
-                            crate::save(&trie::to_account_key(community.creator), &AccountData::Pubkey(account))?;
+                            crate::save(
+                                &trie::to_account_key(community.creator),
+                                &AccountData::Pubkey(account),
+                            )?;
                         }
                     }
                     _ => {}
@@ -167,7 +170,6 @@ fn untrace(
                     let community_key = to_community_key(community.id());
                     crate::save(&community_key, &community)?;
                     crate::save_event(Event::CommunityUpdated(community.id()))?;
-
                 }
                 _ => {
                     let _ = set_timer!(
@@ -303,13 +305,13 @@ fn untrace(
                     let sender = AccountId::from_str(tx.sender.as_str())?;
                     if sender == community.creator {
                         let mut account = get_account_info(sender.clone())?;
-                        account.last_transfer_block = tx.block_number;
                         if account.last_transfer_block < tx.block_number {
-                            if let CommunityMode::InviteOnly(p) = community.mode {
+                            account.last_transfer_block = tx.block_number;
+                            if let CommunityMode::InviteOnly = community.mode {
                                 let key = trie::to_account_key(sender);
                                 storage::put(&key, AccountData::Pubkey(account).encode())
                                     .map_err(|e| e.to_string())?;
-                                let increased = (tx.amount_received / p) as u64;
+                                let increased = (tx.amount_received / MIN_ACTIVATE_FEE) as u64;
                                 let invite_amount_key = to_invitecode_amt_key(community_id, sender);
                                 let tickets = find::<u64>(invite_amount_key.as_ref())?
                                     .unwrap_or_default()
@@ -319,7 +321,9 @@ fn untrace(
                         };
                     }
                 }
-                _ => {}
+                _ => {
+                    vrs_core_sdk::println!("invite tx is none");
+                }
             }
         }
     }
@@ -444,7 +448,10 @@ fn call_tool(on: &Community, func: &str, params: &str) -> Result<String, String>
 }
 
 pub(crate) fn check_transfering(community: &Community, tx: String) -> Result<(), String> {
-    vrs_core_sdk::println!(">>>>>>>>>>>>>>>>>>>>>>{:?}", serde_json::to_string(community));
+    vrs_core_sdk::println!(
+        ">>>>>>>>>>>>>>>>>>>>>>{:?}",
+        serde_json::to_string(community)
+    );
     match community.status.clone() {
         CommunityStatus::PendingCreation | CommunityStatus::Active => Ok(()),
         CommunityStatus::TokenIssued(_) => Ok(()),

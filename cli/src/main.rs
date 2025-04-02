@@ -5,7 +5,7 @@ use jsonrpsee::http_client::{HttpClient, HttpClientBuilder};
 use jsonrpsee::{core::client::ClientT, rpc_params};
 use parity_scale_codec::{Decode, Encode};
 use vemodel::{args::*, *};
-use vrs_core_sdk::{NucleusId};
+use vrs_core_sdk::NucleusId;
 
 // TODO
 pub async fn set_openai_key<T: ClientT>(
@@ -196,7 +196,7 @@ pub async fn main() {
     let cli = Cli::parse();
     let nucleus_id = cli.options.get_nucleus().expect("invalid nucleus id");
     match cli.cmd {
-    /*    SubCmd::CreateCommunity(cmd) => {
+        /*    SubCmd::CreateCommunity(cmd) => {
             let client = build_client(&cli.options.get_rpc());
             let signer = cli.options.get_signer().unwrap();
             match create_community(client, nucleus_id, cmd.into(), signer).await {

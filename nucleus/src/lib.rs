@@ -13,7 +13,10 @@ use vemodel::{
     Account, AccountData, AccountId, Community, CommunityId, ContentId, Event, EventId, LlmVendor,
     RewardPayload,
 };
-use vrs_core_sdk::{codec::{Decode, Encode}, storage};
+use vrs_core_sdk::{
+    codec::{Decode, Encode},
+    storage,
+};
 
 pub const MIN_ACTIVATE_FEE: u128 = 2_000_000_000_000_000;
 pub const MIN_INVITE_FEE: u128 = 2_000_000_000_000_000;
@@ -137,7 +140,10 @@ pub(crate) fn get_account_info(account_id: AccountId) -> Result<Account, String>
         None => Ok(Account::new(account_id)),
     }
 }
-pub(crate) fn save_account(account_id: AccountId, account_data: &AccountData) -> Result<(), String>{
+pub(crate) fn save_account(
+    account_id: AccountId,
+    account_data: &AccountData,
+) -> Result<(), String> {
     let key = to_account_key(account_id);
     crate::save(&key, account_data)
 }

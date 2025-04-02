@@ -1,12 +1,10 @@
-
-
-use rlp::{RlpStream};
-use serde::{Deserialize, Serialize};
-use crate::eth_types::{Address, U256, U64, H256};
 use crate::eth_types::bytes::Bytes;
 use crate::eth_types::ens::NameOrAddress;
 use crate::eth_types::hash::keccak256;
 use crate::eth_types::signature::Signature;
+use crate::eth_types::{Address, H256, U256, U64};
+use rlp::RlpStream;
+use serde::{Deserialize, Serialize};
 pub const NUM_TX_FIELDS: usize = 9;
 
 pub(super) fn rlp_opt<T: rlp::Encodable>(rlp: &mut rlp::RlpStream, opt: &Option<T>) {
@@ -54,7 +52,6 @@ pub struct TransactionRequest {
     #[serde(skip_serializing)]
     #[serde(default, rename = "chainId")]
     pub chain_id: Option<U64>,
-
 }
 
 impl TransactionRequest {
@@ -65,7 +62,11 @@ impl TransactionRequest {
 
     /// Convenience function for sending a new payment transaction to the receiver.
     pub fn pay<T: Into<NameOrAddress>, V: Into<U256>>(to: T, value: V) -> Self {
-        TransactionRequest { to: Some(to.into()), value: Some(value.into()), ..Default::default() }
+        TransactionRequest {
+            to: Some(to.into()),
+            value: Some(value.into()),
+            ..Default::default()
+        }
     }
 
     // Builder pattern helpers
@@ -182,5 +183,4 @@ impl TransactionRequest {
         rlp_opt(rlp, &self.value);
         rlp_opt(rlp, &self.data.as_ref().map(|d| d.as_ref()));
     }
-
 }

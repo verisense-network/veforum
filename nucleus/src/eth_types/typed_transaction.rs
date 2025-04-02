@@ -193,6 +193,7 @@ impl TypedTransaction {
             Legacy(tx) => Some(tx),
         }
     }
+
     pub fn as_legacy_mut(&mut self) -> Option<&mut TransactionRequest> {
         match self {
             Legacy(tx) => Some(tx),

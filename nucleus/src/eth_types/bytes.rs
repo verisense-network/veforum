@@ -1,4 +1,3 @@
-
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     borrow::Borrow,
@@ -12,8 +11,11 @@ use thiserror::Error;
 /// Wrapper type around Bytes to deserialize/serialize "0x" prefixed ethereum hex strings
 #[derive(Clone, Default, PartialEq, Eq, Hash, Serialize, Deserialize, Ord, PartialOrd)]
 pub struct Bytes(
-    #[serde(serialize_with = "serialize_bytes", deserialize_with = "deserialize_bytes")]
-    pub  bytes::Bytes,
+    #[serde(
+        serialize_with = "serialize_bytes",
+        deserialize_with = "deserialize_bytes"
+    )]
+    pub bytes::Bytes,
 );
 
 impl hex::FromHex for Bytes {
@@ -117,8 +119,8 @@ impl Borrow<[u8]> for Bytes {
 }
 
 impl IntoIterator for Bytes {
-    type Item = u8;
     type IntoIter = bytes::buf::IntoIter<bytes::Bytes>;
+    type Item = u8;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.into_iter()
@@ -126,8 +128,8 @@ impl IntoIterator for Bytes {
 }
 
 impl<'a> IntoIterator for &'a Bytes {
-    type Item = &'a u8;
     type IntoIter = core::slice::Iter<'a, u8>;
+    type Item = &'a u8;
 
     fn into_iter(self) -> Self::IntoIter {
         self.as_ref().iter()
@@ -188,7 +190,6 @@ impl PartialEq<bytes::Bytes> for Bytes {
     }
 }
 
-
 #[derive(Debug, Clone, Error)]
 #[error("Failed to parse bytes: {0}")]
 pub struct ParseBytesError(hex::FromHexError);
@@ -202,18 +203,20 @@ impl FromStr for Bytes {
 }
 
 pub fn serialize_bytes<S, T>(x: T, s: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-        T: AsRef<[u8]>,
+where
+    S: Serializer,
+    T: AsRef<[u8]>,
 {
     let r = format!("0x{}", hex::encode(x));
     s.serialize_str(&r)
 }
 
 pub fn deserialize_bytes<'de, D>(d: D) -> Result<bytes::Bytes, D::Error>
-    where
-        D: Deserializer<'de>,
+where
+    D: Deserializer<'de>,
 {
     let value = String::deserialize(d)?;
-    hex::decode(value).map(Into::into).map_err(serde::de::Error::custom)
+    hex::decode(value)
+        .map(Into::into)
+        .map_err(serde::de::Error::custom)
 }
