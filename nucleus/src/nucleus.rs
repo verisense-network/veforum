@@ -423,5 +423,6 @@ pub fn check_permission(community_id: CommunityId, user: AccountId) -> bool {
 
 #[get]
 pub fn get_invite_fee() -> u128 {
+    use crate::MIN_INVITE_FEE;
     MIN_INVITE_FEE
 }
