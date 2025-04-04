@@ -1,6 +1,6 @@
 use crate::agent::{bsc, trace, HttpCallType};
-use crate::trie::{to_community_key, to_invitecode_amt_key, to_permission_key};
-use crate::{save, trie, try_find_community, validate_write_permission};
+use crate::trie::{to_invitecode_amt_key, to_permission_key};
+use crate::{save, trie, validate_write_permission};
 use parity_scale_codec::{Decode, Encode};
 use std::str::FromStr;
 use std::time::Duration;

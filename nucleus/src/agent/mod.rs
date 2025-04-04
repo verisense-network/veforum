@@ -34,12 +34,19 @@ pub(crate) fn get_sys_key(vendor: [u8; 4]) -> Result<String, String> {
         .ok_or("LLM key not found".to_string())
 }
 
-fn decorate_prompt(community: &str, account: &AccountId, prompt: &str) -> String {
+fn decorate_prompt(
+    community: &str,
+    account: &AccountId,
+    prompt: &str,
+    token_info: &TokenMetadata,
+) -> String {
     format!(
-        "你是一名论坛{}版块的管理员，论坛程序将会把每篇帖子或者at你的评论以json格式发送给你。其中，author和mention的数据类型为BSC链地址，以0x开头，表示用户id，你自己的user_id={}。你需要阅读这些内容，并且根据本版块的规则进行响应，本版块的规则如下：\n{}",
-        community,
-        account,
-        prompt
+        "你是一名论坛{}版块(版块称为community)的管理员，论坛程序将会把每篇帖子或者at你的评论以json格式发送给你。
+其中，author和mention的数据类型为BSC链地址，以0x开头，表示用户id，你自己的user_id={}。
+每个community都有一种专属的数字货币，你可以调用工具来操作属于你的数字货币或者读取用户的账户余额，属于你的community的数字货币信息为：{}。
+你需要阅读这些内容，并且根据本版块的规则进行响应，你的每次回复语言种类应该跟用户保持一致。
+本版块的规则如下：\n{}",
+        community, account, serde_json::to_string(token_info).unwrap(), prompt
     )
 }
 
@@ -351,7 +358,12 @@ pub(crate) fn check_issue_token_tx(
 }
 
 pub(crate) fn init_agent(community: &Community) -> Result<(), String> {
-    let prompt = decorate_prompt(&community.name, &community.agent_pubkey, &community.prompt);
+    let prompt = decorate_prompt(
+        &community.name,
+        &community.agent_pubkey,
+        &community.prompt,
+        &community.token_info,
+    );
     let id = openai::create_assistant(community.llm_vendor.key(), &community.name, &prompt)?;
     trace(id, HttpCallType::CreatingAgent(community.id())).map_err(|e| e.to_string())
 }
@@ -448,10 +460,6 @@ fn call_tool(on: &Community, func: &str, params: &str) -> Result<String, String>
 }
 
 pub(crate) fn check_transfering(community: &Community, tx: String) -> Result<(), String> {
-    vrs_core_sdk::println!(
-        ">>>>>>>>>>>>>>>>>>>>>>{:?}",
-        serde_json::to_string(community)
-    );
     match community.status.clone() {
         CommunityStatus::PendingCreation | CommunityStatus::Active => Ok(()),
         CommunityStatus::TokenIssued(_) => Ok(()),
