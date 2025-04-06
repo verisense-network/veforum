@@ -122,6 +122,7 @@ pub fn set_mode(args: SignedArgs<SetModeArg>) -> Result<(), String> {
     community.mode = mode;
     let key = trie::to_community_key(community_id);
     crate::save(&key, &community)?;
+    crate::save_event(Event::CommunityUpdated(community_id))?;
     Ok(())
 }
 
