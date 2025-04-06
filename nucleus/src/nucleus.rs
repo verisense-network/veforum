@@ -108,6 +108,38 @@ pub fn activate_community(arg: ActivateCommunityArg) -> Result<(), String> {
 }
 
 #[post]
+pub fn set_mode(args: SignedArgs<SetModeArg>) -> Result<(), String> {
+    let account = crate::get_account_info(args.signer)?;
+    args.ensure_signed(account.nonce)?;
+    crate::incr_nonce(args.signer, None)?;
+    let SetModeArg { community, mode } = args.payload;
+    let community_id =
+        crate::name_to_community_id(&community).ok_or("Invalid community name".to_string())?;
+    let mut community = crate::try_find_community(community_id)?;
+    (community.creator == args.signer)
+        .then(|| ())
+        .ok_or("Only the creator can set the mode".to_string())?;
+    community.mode = mode;
+    let key = trie::to_community_key(community_id);
+    crate::save(&key, &community)?;
+    Ok(())
+}
+
+#[post]
+pub fn pay_to_join(arg: PaysFeeArg) -> Result<(), String> {
+    let PaysFeeArg { community, tx } = arg;
+    let community_id =
+        crate::name_to_community_id(&community).ok_or("Invalid community name".to_string())?;
+    let community = crate::try_find_community(community_id)?;
+    matches!(community.mode, CommunityMode::PayToJoin(_))
+        .then(|| ())
+        .ok_or("Community is not PayToJoin mode".to_string())?;
+    let tx_hash = tx.trim().to_string();
+    crate::agent::check_fee(&community, tx_hash)?;
+    Ok(())
+}
+
+#[post]
 pub fn invite_user(args: SignedArgs<InviteUserArgs>) -> Result<(), String> {
     let account = crate::get_account_info(args.signer)?;
     args.ensure_signed(account.nonce)?;
@@ -150,7 +182,7 @@ pub fn generate_invite_tickets(args: GenerateInviteTicketArgs) -> Result<(), Str
             trace(id, HttpCallType::CheckingInviteTx(community.id())).map_err(|e| e.to_string())?;
             Ok(())
         }
-        _ => Err("Community is not invite only".to_string()),
+        _ => Err("Community is not InviteOnly mode".to_string()),
     }
 }
 

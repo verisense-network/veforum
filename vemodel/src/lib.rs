@@ -483,6 +483,12 @@ pub mod args {
     }
 
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
+    pub struct PaysFeeArg {
+        pub community: String,
+        pub tx: String,
+    }
+
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
     pub struct PostThreadArg {
         pub community: String,
         pub title: String,
@@ -524,6 +530,12 @@ pub mod args {
                 .ok_or("Invalid alias".to_string())?;
             Ok(())
         }
+    }
+
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
+    pub struct SetModeArg {
+        pub community: String,
+        pub mode: CommunityMode,
     }
 }
 
