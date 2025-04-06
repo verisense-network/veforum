@@ -43,7 +43,8 @@ fn decorate_prompt(
     format!(
         "你是一名论坛{}版块(版块称为community)的管理员，论坛程序将会把每篇帖子或者at你的评论以json格式发送给你。
 其中，author和mention的数据类型为BSC链地址，以0x开头，表示用户id，你自己的user_id={}。
-每个community都有一种专属的数字货币，你可以调用工具来操作属于你的数字货币或者读取用户的账户余额，属于你的community的数字货币信息为：{}。
+每个community都有一种专属的数字货币，你可以调用工具来操作属于你的数字货币或者读取用户的账户余额，需要注意的是给你的工具中关于数值部分均为定点数，例如，你想transfer给某个用户100代币，该代币的decimals为2，则你需要传递的amount参数为10000。其它工具的参数同理。
+属于你的community的数字货币信息为：{}。
 你需要阅读这些内容，并且根据本版块的规则进行响应，你的每次回复语言种类应该跟用户保持一致。
 本版块的规则如下：\n{}",
         community, account, serde_json::to_string(token_info).unwrap(), prompt
@@ -63,6 +64,7 @@ pub enum HttpCallType {
     QueryBscGasPrice,
     QueryIssueResult(CommunityId, String),
     CheckingInviteTx(CommunityId),
+    CheckingPayToJoinTx(CommunityId),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -138,6 +140,35 @@ fn untrace(
                 _ => {}
             }
         }
+        HttpCallType::CheckingPayToJoinTx(community_id) => {
+            let mut community = try_find_community(community_id)?;
+            let addr = community.agent_pubkey.to_string();
+            let tx = bsc::on_checking_bnb_transfer(&addr, response)
+                .map_err(|e| e.to_string())?
+                .ok_or("No tx found".to_string())?;
+            if let CommunityMode::PayToJoin(fee) = community.mode {
+                if tx.amount_received >= fee {
+                    let account_id = H160::from_str(&tx.sender)?;
+                    let mut account = get_account_info(account_id)?;
+                    if account.last_transfer_block < tx.block_number {
+                        account.last_transfer_block = tx.block_number;
+                        crate::save(
+                            &trie::to_account_key(account.address),
+                            &AccountData::Pubkey(account),
+                        )?;
+                        let permission_key = trie::to_permission_key(community_id, account_id);
+                        let _ = crate::save(permission_key.as_ref(), &1u32);
+                        let amount: u64 = tx.amount_received.try_into().unwrap();
+                        let creator_share = amount * 7 / 10;
+                        let platform_share = amount - creator_share;
+                        community.creator_bnb_benefit += creator_share;
+                        community.platform_bnb_benefit += platform_share;
+                        let key = trie::to_community_key(community_id);
+                        crate::save(&key, &community)?;
+                    }
+                }
+            }
+        }
         HttpCallType::SendIssueTx(community_id) => match bsc::on_issuing_tx(response) {
             Ok(Some(tx)) => {
                 let mut community = try_find_community(community_id)?;
@@ -164,14 +195,14 @@ fn untrace(
                     community.agent_contract = Some(contract_addr);
                     if community.token_info.new_issue {
                         community.token_info.contract = token_contract
-                            .map(|c| AccountId::from_str(c.as_str()).unwrap_or(H160([0u8; 20])))
-                            .unwrap_or(H160([0u8; 20]));
+                            .map(|c| AccountId::from_str(c.as_str()).unwrap())
+                            .ok_or("The tx should include a token contract".to_string())?;
+                        storage::put(
+                            &crate::trie::to_balance_key(community_id, community.agent_pubkey),
+                            community.token_info.total_issuance.encode(),
+                        )
+                        .map_err(|e| e.to_string())?;
                     }
-                    storage::put(
-                        &crate::trie::to_balance_key(community_id, community.agent_pubkey),
-                        community.token_info.total_issuance.encode(),
-                    )
-                    .map_err(|e| e.to_string())?;
                     crate::agent::init_agent(&community)?;
                     community.status = CommunityStatus::Active;
                     let community_key = to_community_key(community.id());
@@ -470,4 +501,9 @@ pub(crate) fn check_transfering(community: &Community, tx: String) -> Result<(),
             trace(id, HttpCallType::CheckingActivateTx(community.id())).map_err(|e| e.to_string())
         }
     }
+}
+
+pub(crate) fn check_fee(community: &Community, tx: String) -> Result<(), String> {
+    let id = bsc::initiate_query_bsc_transaction(&tx)?;
+    trace(id, HttpCallType::CheckingPayToJoinTx(community.id())).map_err(|e| e.to_string())
 }
