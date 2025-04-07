@@ -465,7 +465,7 @@ pub mod args {
                 .ok_or("total issuance should be greater than 0".to_string())?;
             (self.decimals <= 8)
                 .then(|| ())
-                .ok_or("decimals should be less than or equal to 18".to_string())?;
+                .ok_or("decimals should be less than or equal to 8".to_string())?;
             Ok(())
         }
     }
