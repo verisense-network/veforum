@@ -9,7 +9,8 @@ use vrs_core_sdk::NucleusId;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let db = storage::open("./data")?;
+    let db_path = std::env::var("DB_PATH").unwrap_or_else(|_| "/data".to_string());
+    let db = storage::open(&db_path)?;
     let meili_master_key = std::env::var("MEILI_MASTER_KEY").expect("MEILI_MASTER_KEY must be set");
     let meili_addr = std::env::var("MEILI_ADDR").expect("MEILI_ADDR must be set");
     let verisense_rpc = std::env::var("VERISENSE_RPC").expect("VERISENSE_RPC must be set");
