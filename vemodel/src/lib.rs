@@ -288,7 +288,7 @@ impl Account {
 pub struct TokenMetadata {
     pub name: String,
     pub symbol: String,
-    pub total_issuance: u64,
+    pub total_issuance: u128,
     pub decimals: u8,
     pub new_issue: bool,
     pub contract: AccountId,
@@ -445,7 +445,7 @@ pub mod args {
     pub struct TokenMetadataArg {
         pub name: String,
         pub symbol: String,
-        pub total_issuance: u64,
+        pub total_issuance: u128,
         pub decimals: u8,
         pub new_issue: bool,
         pub contract: Option<String>,
@@ -454,10 +454,13 @@ pub mod args {
 
     impl TokenMetadataArg {
         pub fn validate(&self) -> Result<(), String> {
+            if !self.new_issue {
+                return Ok(());
+            }
             let re = regex::Regex::new(TOKEN_REGEX).unwrap();
             re.captures(&self.symbol)
                 .ok_or("Invalid token name".to_string())?;
-            (self.total_issuance > 0 && self.total_issuance <= (1u64 << 53))
+            (self.total_issuance > 0 && self.total_issuance <= u128::MAX)
                 .then(|| ())
                 .ok_or("total issuance should be greater than 0".to_string())?;
             (self.decimals <= 8)
