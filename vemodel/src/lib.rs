@@ -462,7 +462,7 @@ pub mod args {
                 .ok_or("Invalid token name".to_string())?;
             (self.total_issuance > 0 && self.total_issuance <= u128::MAX)
                 .then(|| ())
-                .ok_or("total issuance should be greater than 0".to_string())?;
+                .ok_or("total issuance should be greater than 0 and not greater than 340282366920938463463374607431768211455 ".to_string())?;
             (self.decimals <= 8)
                 .then(|| ())
                 .ok_or("decimals should be less than or equal to 8".to_string())?;
