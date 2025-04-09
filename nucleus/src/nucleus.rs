@@ -1,10 +1,14 @@
 use crate::agent::{bsc, trace, HttpCallType};
-use crate::trie::{to_invitecode_amt_key, to_permission_key};
+use crate::trie::{
+    to_balance_key, to_invitecode_amt_key, to_permission_key, BALANCE_KEY_PREFIX,
+    BALANCE_KEY_PREFIX1,
+};
 use crate::{save, trie, validate_write_permission};
 use parity_scale_codec::{Decode, Encode};
 use std::str::FromStr;
 use std::time::Duration;
 use vemodel::{args::*, crypto::*, *};
+use vrs_core_sdk::storage::Direction;
 use vrs_core_sdk::{get, init, post, set_timer, storage, timer, tss};
 
 type SignedArgs<T> = Args<T, EcdsaSignature>;
@@ -410,7 +414,7 @@ pub fn get_balances(
     account_id: AccountId,
     gt: Option<CommunityId>,
     limit: u32,
-) -> Result<Vec<(Community, u64)>, String> {
+) -> Result<Vec<(Community, u128)>, String> {
     (limit <= 100)
         .then(|| ())
         .ok_or("limit should be no more than 100".to_string())?;
@@ -428,17 +432,50 @@ pub fn get_balances(
     Ok(r)
 }
 
-fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u64), String> {
+fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u128), String> {
     let suffix: [u8; 4] = *(&key[28..].try_into().expect("qed"));
     let community_id = CommunityId::from_be_bytes(suffix);
-    let balance = u64::decode(&mut &value[..]).map_err(|e| e.to_string())?;
+    let balance = u128::decode(&mut &value[..]).map_err(|e| e.to_string())?;
     let mut community = crate::try_find_community(community_id)?;
     community.prompt = Default::default();
     Ok((community, balance))
 }
 
+pub fn old_balance_key(community_id: CommunityId, account_id: AccountId) -> [u8; 32] {
+    [
+        &BALANCE_KEY_PREFIX.to_be_bytes()[..],
+        &account_id.0[..],
+        &community_id.to_be_bytes()[..],
+    ]
+    .concat()
+    .try_into()
+    .unwrap()
+}
+
 #[init]
 pub fn init() {
+    let mut start_key = old_balance_key(CommunityId::MIN, H160([u8::MIN; 20]));
+    loop {
+        let kvs: Vec<(Vec<u8>, Vec<u8>)> =
+            storage::get_range(start_key.as_ref(), Direction::Forward, 1000usize)
+                .unwrap()
+                .iter()
+                .filter(|(k, v)| k.starts_with(BALANCE_KEY_PREFIX.to_be_bytes().as_ref()))
+                .cloned()
+                .collect();
+        for (k, v) in kvs.clone() {
+            let account = AccountId::from_slice(&k[8..28]).unwrap();
+            let community_id = CommunityId::from_le_bytes(k[28..].to_vec().try_into().unwrap());
+            let balance: u128 =
+                u64::decode(&mut &v[..]).map_err(|e| e.to_string()).unwrap() as u128;
+            let new_key = to_balance_key(community_id, account);
+            storage::put(&new_key, balance.encode()).unwrap();
+            start_key = k.try_into().unwrap();
+        }
+        if kvs.len() < 1000 {
+            break;
+        }
+    }
     set_timer!(Duration::from_secs(5), query_bsc_gas_price).expect("set timer failed");
 }
 
@@ -449,7 +486,6 @@ pub fn query_bsc_gas_price() {
     crate::agent::trace(id, HttpCallType::QueryBscGasPrice)
         .map_err(|e| e.to_string())
         .expect("query price error");
-    set_timer!(std::time::Duration::from_secs(600), query_bsc_gas_price).expect("set timer failed");
 }
 
 #[get]

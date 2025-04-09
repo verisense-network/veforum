@@ -17,6 +17,7 @@ pub const REWARD_PAYLOAD_PREFIX: u64 = 0x00000006_00000000;
 pub const REWARD_SEQ_PREFIX: u64 = 0x00000007_00000000;
 pub const INVITE_AMT_PREFIX: u64 = 0x00000008_00000000;
 pub const GASPRICE_STORAGE_KEY: u64 = 0x00000009_00000000;
+pub const BALANCE_KEY_PREFIX1: u64 = 0x0000000a_00000000;
 pub const KEY_STORE: u64 = 0x00000010_00000000;
 pub const HTTP_MASK: u128 = 0x0000000f_00000000_00000000_00000000;
 
@@ -78,7 +79,7 @@ pub fn to_account_key(account_id: AccountId) -> [u8; 28] {
 
 pub fn to_balance_key(community_id: CommunityId, account_id: AccountId) -> [u8; 32] {
     [
-        &BALANCE_KEY_PREFIX.to_be_bytes()[..],
+        &BALANCE_KEY_PREFIX1.to_be_bytes()[..],
         &account_id.0[..],
         &community_id.to_be_bytes()[..],
     ]

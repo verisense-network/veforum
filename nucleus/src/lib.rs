@@ -184,20 +184,20 @@ pub(crate) fn transfer(
     community_id: CommunityId,
     from: AccountId,
     to: AccountId,
-    amount: u64,
+    amount: u128,
 ) -> Result<(), String> {
     let community = crate::try_find_community(community_id)?;
-    let amount = amount * 10u64.pow(community.token_info.decimals as u32);
+    let amount = amount * 10u128.pow(community.token_info.decimals as u32);
     let from_key = trie::to_balance_key(community_id.clone(), from);
     let from_balance = storage::get(&from_key)
         .map_err(|e| e.to_string())?
-        .map(|d| u64::decode(&mut &d[..]).map_err(|e| e.to_string()))
+        .map(|d| u128::decode(&mut &d[..]).map_err(|e| e.to_string()))
         .transpose()?
         .unwrap_or(0);
     let to_key = trie::to_balance_key(community_id.clone(), to);
     let to_balance = storage::get(&to_key)
         .map_err(|e| e.to_string())?
-        .map(|d| u64::decode(&mut &d[..]).map_err(|e| e.to_string()))
+        .map(|d| u128::decode(&mut &d[..]).map_err(|e| e.to_string()))
         .transpose()?
         .unwrap_or(0);
     if from_balance < amount {
@@ -225,7 +225,7 @@ pub(crate) fn balance_of(
     let key = trie::to_balance_key(community_id, account_id);
     storage::get(&key)
         .map_err(|e| e.to_string())?
-        .map(|d| u64::decode(&mut &d[..]).map_err(|e| e.to_string()))
+        .map(|d| u128::decode(&mut &d[..]).map_err(|e| e.to_string()))
         .transpose()
         .map(|v| v.unwrap_or(0))
         .map(|v| {
