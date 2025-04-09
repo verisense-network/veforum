@@ -55,6 +55,9 @@ pub fn create_community(args: SignedArgs<CreateCommunityArg>) -> Result<Communit
     if !token.new_issue && token.contract.is_none() {
         return Err("the token contract must set if using a exist token contract".to_string());
     }
+    (token.total_issuance <= 2 << 56)
+        .then(|| ())
+        .ok_or("Too much issuance")?;
     let token_info = TokenMetadata {
         name: token.name,
         symbol: token.symbol,

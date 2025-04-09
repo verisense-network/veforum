@@ -186,6 +186,8 @@ pub(crate) fn transfer(
     to: AccountId,
     amount: u64,
 ) -> Result<(), String> {
+    let community = crate::try_find_community(community_id)?;
+    let amount = amount * 10u64.pow(community.token_info.decimals as u32);
     let from_key = trie::to_balance_key(community_id.clone(), from);
     let from_balance = storage::get(&from_key)
         .map_err(|e| e.to_string())?
@@ -215,13 +217,20 @@ pub(crate) fn transfer(
     Ok(())
 }
 
-pub(crate) fn balance_of(community_id: CommunityId, account_id: AccountId) -> Result<u64, String> {
+pub(crate) fn balance_of(
+    community_id: CommunityId,
+    account_id: AccountId,
+) -> Result<String, String> {
+    let community = crate::try_find_community(community_id)?;
     let key = trie::to_balance_key(community_id, account_id);
     storage::get(&key)
         .map_err(|e| e.to_string())?
         .map(|d| u64::decode(&mut &d[..]).map_err(|e| e.to_string()))
         .transpose()
         .map(|v| v.unwrap_or(0))
+        .map(|v| {
+            rust_decimal::Decimal::new(v as i64, community.token_info.decimals as u32).to_string()
+        })
 }
 
 pub(crate) fn into_account_id(alias: &str) -> AccountId {

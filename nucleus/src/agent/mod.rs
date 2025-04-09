@@ -41,11 +41,11 @@ fn decorate_prompt(
     token_info: &TokenMetadata,
 ) -> String {
     format!(
-        "你是一名论坛{}版块(版块称为community)的管理员，论坛程序将会把每篇帖子或者at你的评论以json格式发送给你。
+        "你是{} community的管理员，论坛程序将会把每篇帖子或者at你的评论以json格式发送给你。
 其中，author和mention的数据类型为BSC链地址，以0x开头，表示用户id，你自己的user_id={}。
-每个community都有一种专属的数字货币，你可以调用工具来操作属于你的数字货币或者读取用户的账户余额，需要注意的是给你的工具中关于数值部分均为定点数，例如，你想transfer给某个用户100代币，该代币的decimals为2，则你需要传递的amount参数为10000。其它工具的参数同理。
+每个community都有一种专属的数字货币，你可以调用工具来操作属于你的数字货币或者读取用户的账户余额。
 属于你的community的数字货币信息为：{}。
-你需要阅读这些内容，并且根据本版块的规则进行响应，你的每次回复语言种类应该跟用户保持一致。
+你需要阅读这些内容，并且根据本版块的规则进行响应，你的每次回复语言种类应该跟用户每次使用的语言保持一致。
 本版块的规则如下：\n{}",
         community, account, serde_json::to_string(token_info).unwrap(), prompt
     )
@@ -473,7 +473,7 @@ fn call_tool(on: &Community, func: &str, params: &str) -> Result<String, String>
     let json: serde_json::Value =
         serde_json::from_str(params).map_err(|_| "Invalid parameters".to_string())?;
     match func {
-        "agent_balance" => crate::balance_of(on.id(), on.agent_pubkey).map(|v| v.to_string()),
+        "agent_balance" => crate::balance_of(on.id(), on.agent_pubkey),
         "transfer" => {
             let recipient = json["recipient"].as_str().ok_or("Invalid recipient")?;
             let recipient =
@@ -484,7 +484,7 @@ fn call_tool(on: &Community, func: &str, params: &str) -> Result<String, String>
         "balance_of" => {
             let account = json["account"].as_str().ok_or("Invalid account")?;
             let account = AccountId::from_str(account).map_err(|_| "Invalid param: account")?;
-            crate::balance_of(on.id(), account).map(|v| v.to_string())
+            crate::balance_of(on.id(), account)
         }
         _ => Err("Invalid tool".to_string()),
     }

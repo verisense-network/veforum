@@ -27,7 +27,7 @@ pub(crate) fn create_assistant(key: &str, name: &str, prompt: &str) -> Result<u6
                         },
                         "amount": {
                             "type": "number",
-                            "description": "The amount(integer) to transfer"
+                            "description": "The amount to transfer"
                         }
                     },
                     "required": ["recipient", "amount"],
@@ -39,7 +39,7 @@ pub(crate) fn create_assistant(key: &str, name: &str, prompt: &str) -> Result<u6
             "type": "function",
             "function": {
                 "name": "agent_balance",
-                "description": "Check the agent's balance"
+                "description": "Check the balance of the assistant"
             }
         },{
             "type": "function",
