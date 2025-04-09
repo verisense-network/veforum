@@ -465,7 +465,7 @@ pub fn init() {
                 .collect();
         for (k, v) in kvs.clone() {
             let account = AccountId::from_slice(&k[8..28]).unwrap();
-            let community_id = CommunityId::from_le_bytes(k[28..].to_vec().try_into().unwrap());
+            let community_id = CommunityId::from_be_bytes(k[28..].to_vec().try_into().unwrap());
             let balance: u128 =
                 u64::decode(&mut &v[..]).map_err(|e| e.to_string()).unwrap() as u128;
             let new_key = to_balance_key(community_id, account);
