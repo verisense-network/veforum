@@ -467,7 +467,7 @@ pub fn init() {
             let balance: u128 =
                 u64::decode(&mut &v[..]).map_err(|e| e.to_string()).unwrap() as u128;
             let mut new_key = k.clone();
-            new_key[3] = 11;
+            new_key[3] = 0x0a;
             storage::put(&new_key, balance.encode()).unwrap();
             start_key = k.try_into().unwrap();
         }
