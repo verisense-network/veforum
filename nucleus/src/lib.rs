@@ -140,6 +140,8 @@ pub(crate) fn get_account_info(account_id: AccountId) -> Result<Account, String>
         None => Ok(Account::new(account_id)),
     }
 }
+
+#[allow(dead_code)]
 pub(crate) fn save_account(
     account_id: AccountId,
     account_data: &AccountData,
