@@ -410,7 +410,7 @@ pub fn get_balances(
     account_id: AccountId,
     gt: Option<CommunityId>,
     limit: u32,
-) -> Result<Vec<(Community, u64)>, String> {
+) -> Result<Vec<(Community, u128)>, String> {
     (limit <= 100)
         .then(|| ())
         .ok_or("limit should be no more than 100".to_string())?;
@@ -428,10 +428,10 @@ pub fn get_balances(
     Ok(r)
 }
 
-fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u64), String> {
+fn compose_balance(key: Vec<u8>, value: Vec<u8>) -> Result<(Community, u128), String> {
     let suffix: [u8; 4] = *(&key[28..].try_into().expect("qed"));
     let community_id = CommunityId::from_be_bytes(suffix);
-    let balance = u64::decode(&mut &value[..]).map_err(|e| e.to_string())?;
+    let balance = u128::decode(&mut &value[..]).map_err(|e| e.to_string())?;
     let mut community = crate::try_find_community(community_id)?;
     community.prompt = Default::default();
     Ok((community, balance))
@@ -449,7 +449,6 @@ pub fn query_bsc_gas_price() {
     crate::agent::trace(id, HttpCallType::QueryBscGasPrice)
         .map_err(|e| e.to_string())
         .expect("query price error");
-    set_timer!(std::time::Duration::from_secs(600), query_bsc_gas_price).expect("set timer failed");
 }
 
 #[get]

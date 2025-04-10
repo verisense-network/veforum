@@ -481,7 +481,7 @@ fn call_tool(on: &Community, func: &str, params: &str) -> Result<String, String>
             let recipient = json["recipient"].as_str().ok_or("Invalid recipient")?;
             let recipient =
                 AccountId::from_str(recipient).map_err(|_| "Invalid param: recipient")?;
-            let amount = json["amount"].as_u64().ok_or("Invalid amount")?;
+            let amount = json["amount"].as_u64().ok_or("Invalid amount")? as u128;
             crate::transfer(on.id(), on.agent_pubkey, recipient, amount).map(|_| "Ok".to_string())
         }
         "balance_of" => {
