@@ -536,12 +536,6 @@ pub mod args {
     }
 
     #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-    pub struct SetModeArg {
-        pub community: String,
-        pub mode: CommunityMode,
-    }
-
-    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
     pub struct SetCommunityArg {
         pub community: String,
         pub logo: String,
