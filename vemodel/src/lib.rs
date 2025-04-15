@@ -540,6 +540,15 @@ pub mod args {
         pub community: String,
         pub mode: CommunityMode,
     }
+
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
+    pub struct SetCommunityArg {
+        pub community: String,
+        pub logo: String,
+        pub description: String,
+        pub slug: String,
+        pub mode: CommunityMode,
+    }
 }
 
 #[derive(Debug, Clone, Decode, Encode)]

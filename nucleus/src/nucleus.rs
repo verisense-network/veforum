@@ -130,6 +130,34 @@ pub fn set_mode(args: SignedArgs<SetModeArg>) -> Result<(), String> {
 }
 
 #[post]
+pub fn set_community(args: SignedArgs<SetCommunityArg>) -> Result<(), String> {
+    let account = crate::get_account_info(args.signer)?;
+    args.ensure_signed(account.nonce)?;
+    crate::incr_nonce(args.signer, None)?;
+    let SetCommunityArg {
+        community,
+        logo,
+        description,
+        slug,
+        mode,
+    } = args.payload;
+    let community_id =
+        crate::name_to_community_id(&community).ok_or("Invalid community name".to_string())?;
+    let mut community = crate::try_find_community(community_id)?;
+    (community.creator == args.signer)
+        .then(|| ())
+        .ok_or("Only the creator can set the mode".to_string())?;
+    community.mode = mode;
+    community.logo = logo;
+    community.description = description;
+    community.slug = slug;
+    let key = trie::to_community_key(community_id);
+    crate::save(&key, &community)?;
+    crate::save_event(Event::CommunityUpdated(community_id))?;
+    Ok(())
+}
+
+#[post]
 pub fn pay_to_join(arg: PaysFeeArg) -> Result<(), String> {
     let PaysFeeArg { community, tx } = arg;
     let community_id =
