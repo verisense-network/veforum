@@ -460,12 +460,15 @@ pub mod args {
             let re = regex::Regex::new(TOKEN_REGEX).unwrap();
             re.captures(&self.symbol)
                 .ok_or("Invalid token name".to_string())?;
-            (self.total_issuance > 0 && self.total_issuance <= u128::MAX)
+            (self.total_issuance > 0 && self.total_issuance < u64::max_value() as u128)
                 .then(|| ())
-                .ok_or("total issuance should be greater than 0 and not greater than 340282366920938463463374607431768211455 ".to_string())?;
-            (self.decimals <= 8)
+                .ok_or(format!(
+                    "total issuance should be greater than 0 and less than {}",
+                    u64::MAX,
+                ))?;
+            (self.decimals <= 18)
                 .then(|| ())
-                .ok_or("decimals should be less than or equal to 8".to_string())?;
+                .ok_or("decimals should be less than or equal to 18".to_string())?;
             Ok(())
         }
     }
