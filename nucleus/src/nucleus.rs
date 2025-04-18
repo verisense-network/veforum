@@ -486,3 +486,8 @@ pub fn get_invite_fee() -> u128 {
     use crate::MIN_INVITE_FEE;
     MIN_INVITE_FEE
 }
+
+#[get]
+pub fn get_account_count() -> u128 {
+    crate::get_account_count().expect("get account count failed")
+}

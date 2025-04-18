@@ -7,7 +7,7 @@ mod trie;
 
 use crate::agent::rewards::generate_rewards;
 use crate::eth_types::Address;
-use crate::trie::{to_account_key, to_reward_payload_key};
+use crate::trie::{to_account_key, to_reward_payload_key, PERMISSION_KEY_PREFIX};
 use sha2::{Digest, Sha256};
 use vemodel::{
     Account, AccountData, AccountId, Community, CommunityId, ContentId, Event, EventId, LlmVendor,
@@ -139,6 +139,36 @@ pub(crate) fn get_account_info(account_id: AccountId) -> Result<Account, String>
         }
         None => Ok(Account::new(account_id)),
     }
+}
+
+pub(crate) fn get_account_count() -> Result<u128, String> {
+    let prefix_vec = PERMISSION_KEY_PREFIX.to_be_bytes().to_vec();
+    let mut count: u128 = 0;
+    let mut last_key = prefix_vec.clone();
+
+    loop {
+        let batch = storage::get_range(&last_key, storage::Direction::Forward, 1000)
+            .map_err(|e| e.to_string())?;
+
+        if batch.is_empty() {
+            break;
+        }
+
+        let filtered_count = batch
+            .iter()
+            .filter(|(k, _)| k.starts_with(&prefix_vec))
+            .count() as u128;
+
+        count += filtered_count;
+
+        if filtered_count < 1000 {
+            break;
+        }
+
+        last_key = batch.last().unwrap().0.clone();
+    }
+
+    Ok(count)
 }
 
 #[allow(dead_code)]
