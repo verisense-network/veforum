@@ -5,8 +5,9 @@ use parity_scale_codec::{Decode, Encode};
 use std::str::FromStr;
 use std::time::Duration;
 use vemodel::{args::*, crypto::*, *};
-use vrs_core_sdk::{get, init, post, set_timer, storage, timer, tss};
+use vrs_core_sdk::{export, get, init, post, set_timer, storage, timer, tss};
 
+#[export]
 type SignedArgs<T> = Args<T, EcdsaSignature>;
 
 // TODO authorization

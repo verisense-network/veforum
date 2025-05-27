@@ -1,0 +1,2733 @@
+[
+  {
+    "generics": [
+      "T"
+    ],
+    "name": "SignedArgs",
+    "target": {
+      "generic_args": [
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "T"
+          ]
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "EcdsaSignature"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Args"
+      ]
+    },
+    "type": "type_alias"
+  },
+  {
+    "inputs": [
+      {
+        "name": "key",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      }
+    ],
+    "method": "post",
+    "name": "set_llm_key",
+    "output": {
+      "generic_args": [
+        {
+          "kind": "Tuple",
+          "tuple_args": []
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "args",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "CreateCommunityArg"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "SignedArgs"
+          ]
+        }
+      }
+    ],
+    "method": "post",
+    "name": "create_community",
+    "output": {
+      "generic_args": [
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "CommunityId"
+          ]
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "arg",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "ActivateCommunityArg"
+          ]
+        }
+      }
+    ],
+    "method": "post",
+    "name": "activate_community",
+    "output": {
+      "generic_args": [
+        {
+          "kind": "Tuple",
+          "tuple_args": []
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "args",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "SetModeArg"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "SignedArgs"
+          ]
+        }
+      }
+    ],
+    "method": "post",
+    "name": "set_mode",
+    "output": {
+      "generic_args": [
+        {
+          "kind": "Tuple",
+          "tuple_args": []
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "args",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "SetCommunityArg"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "SignedArgs"
+          ]
+        }
+      }
+    ],
+    "method": "post",
+    "name": "set_community",
+    "output": {
+      "generic_args": [
+        {
+          "kind": "Tuple",
+          "tuple_args": []
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "arg",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "PaysFeeArg"
+          ]
+        }
+      }
+    ],
+    "method": "post",
+    "name": "pay_to_join",
+    "output": {
+      "generic_args": [
+        {
+          "kind": "Tuple",
+          "tuple_args": []
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "args",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "InviteUserArgs"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "SignedArgs"
+          ]
+        }
+      }
+    ],
+    "method": "post",
+    "name": "invite_user",
+    "output": {
+      "generic_args": [
+        {
+          "kind": "Tuple",
+          "tuple_args": []
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "community_id",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "CommunityId"
+          ]
+        }
+      },
+      {
+        "name": "user",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "AccountId"
+          ]
+        }
+      }
+    ],
+    "method": "get",
+    "name": "get_invite_tickets",
+    "output": {
+      "generic_args": [],
+      "kind": "Path",
+      "path": [
+        "u64"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "args",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "GenerateInviteTicketArgs"
+          ]
+        }
+      }
+    ],
+    "method": "post",
+    "name": "generate_invite_tickets",
+    "output": {
+      "generic_args": [
+        {
+          "kind": "Tuple",
+          "tuple_args": []
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "args",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "PostThreadArg"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "SignedArgs"
+          ]
+        }
+      }
+    ],
+    "method": "post",
+    "name": "post_thread",
+    "output": {
+      "generic_args": [
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "ContentId"
+          ]
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "args",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "PostCommentArg"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "SignedArgs"
+          ]
+        }
+      }
+    ],
+    "method": "post",
+    "name": "post_comment",
+    "output": {
+      "generic_args": [
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "ContentId"
+          ]
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "id",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "CommunityId"
+          ]
+        }
+      }
+    ],
+    "method": "get",
+    "name": "get_community",
+    "output": {
+      "generic_args": [
+        {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "Community"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Option"
+          ]
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "id",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "ContentId"
+          ]
+        }
+      },
+      {
+        "name": "limit",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "u32"
+          ]
+        }
+      }
+    ],
+    "method": "get",
+    "name": "get_raw_contents",
+    "output": {
+      "generic_args": [
+        {
+          "generic_args": [
+            {
+              "kind": "Tuple",
+              "tuple_args": [
+                {
+                  "generic_args": [],
+                  "kind": "Path",
+                  "path": [
+                    "ContentId"
+                  ]
+                },
+                {
+                  "generic_args": [
+                    {
+                      "generic_args": [],
+                      "kind": "Path",
+                      "path": [
+                        "u8"
+                      ]
+                    }
+                  ],
+                  "kind": "Path",
+                  "path": [
+                    "Vec"
+                  ]
+                }
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "id",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "ContentId"
+          ]
+        }
+      }
+    ],
+    "method": "get",
+    "name": "get_raw_content",
+    "output": {
+      "generic_args": [
+        {
+          "generic_args": [
+            {
+              "generic_args": [
+                {
+                  "generic_args": [],
+                  "kind": "Path",
+                  "path": [
+                    "u8"
+                  ]
+                }
+              ],
+              "kind": "Path",
+              "path": [
+                "Vec"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Option"
+          ]
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "id",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "EventId"
+          ]
+        }
+      },
+      {
+        "name": "limit",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "u32"
+          ]
+        }
+      }
+    ],
+    "method": "get",
+    "name": "get_events",
+    "output": {
+      "generic_args": [
+        {
+          "generic_args": [
+            {
+              "kind": "Tuple",
+              "tuple_args": [
+                {
+                  "generic_args": [],
+                  "kind": "Path",
+                  "path": [
+                    "EventId"
+                  ]
+                },
+                {
+                  "generic_args": [],
+                  "kind": "Path",
+                  "path": [
+                    "Event"
+                  ]
+                }
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "args",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "SetAliasArg"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "SignedArgs"
+          ]
+        }
+      }
+    ],
+    "method": "post",
+    "name": "set_alias",
+    "output": {
+      "generic_args": [
+        {
+          "kind": "Tuple",
+          "tuple_args": []
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "account_id",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "AccountId"
+          ]
+        }
+      }
+    ],
+    "method": "get",
+    "name": "get_account_info",
+    "output": {
+      "generic_args": [
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "Account"
+          ]
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "community_id",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "CommunityId"
+          ]
+        }
+      },
+      {
+        "name": "account_id",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "AccountId"
+          ]
+        }
+      }
+    ],
+    "method": "get",
+    "name": "get_reward_payloads",
+    "output": {
+      "generic_args": [
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "RewardPayload"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Vec"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "account_ids",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "AccountId"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      }
+    ],
+    "method": "get",
+    "name": "get_accounts",
+    "output": {
+      "generic_args": [
+        {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "Account"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "account_id",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "AccountId"
+          ]
+        }
+      },
+      {
+        "name": "gt",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "CommunityId"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Option"
+          ]
+        }
+      },
+      {
+        "name": "limit",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "u32"
+          ]
+        }
+      }
+    ],
+    "method": "get",
+    "name": "get_balances",
+    "output": {
+      "generic_args": [
+        {
+          "generic_args": [
+            {
+              "kind": "Tuple",
+              "tuple_args": [
+                {
+                  "generic_args": [],
+                  "kind": "Path",
+                  "path": [
+                    "Community"
+                  ]
+                },
+                {
+                  "generic_args": [],
+                  "kind": "Path",
+                  "path": [
+                    "u128"
+                  ]
+                }
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        },
+        {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      ],
+      "kind": "Path",
+      "path": [
+        "Result"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [
+      {
+        "name": "community_id",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "CommunityId"
+          ]
+        }
+      },
+      {
+        "name": "user",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "AccountId"
+          ]
+        }
+      }
+    ],
+    "method": "get",
+    "name": "check_permission",
+    "output": {
+      "generic_args": [],
+      "kind": "Path",
+      "path": [
+        "bool"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [],
+    "method": "get",
+    "name": "get_invite_fee",
+    "output": {
+      "generic_args": [],
+      "kind": "Path",
+      "path": [
+        "u128"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "inputs": [],
+    "method": "get",
+    "name": "get_account_count",
+    "output": {
+      "generic_args": [],
+      "kind": "Path",
+      "path": [
+        "u128"
+      ]
+    },
+    "type": "fn"
+  },
+  {
+    "generics": [],
+    "name": "CommunityId",
+    "target": {
+      "generic_args": [],
+      "kind": "Path",
+      "path": [
+        "u32"
+      ]
+    },
+    "type": "type_alias"
+  },
+  {
+    "generics": [],
+    "name": "EventId",
+    "target": {
+      "generic_args": [],
+      "kind": "Path",
+      "path": [
+        "u64"
+      ]
+    },
+    "type": "type_alias"
+  },
+  {
+    "generics": [],
+    "name": "RewardId",
+    "target": {
+      "generic_args": [],
+      "kind": "Path",
+      "path": [
+        "u64"
+      ]
+    },
+    "type": "type_alias"
+  },
+  {
+    "generics": [],
+    "name": "ContentId",
+    "target": {
+      "generic_args": [],
+      "kind": "Path",
+      "path": [
+        "u128"
+      ]
+    },
+    "type": "type_alias"
+  },
+  {
+    "name": "Event",
+    "type": "enum",
+    "variants": [
+      {
+        "fields": [
+          {
+            "name": "_0",
+            "type": {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "CommunityId"
+              ]
+            }
+          }
+        ],
+        "name": "CommunityCreated"
+      },
+      {
+        "fields": [
+          {
+            "name": "_0",
+            "type": {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "CommunityId"
+              ]
+            }
+          }
+        ],
+        "name": "CommunityUpdated"
+      },
+      {
+        "fields": [
+          {
+            "name": "_0",
+            "type": {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "ContentId"
+              ]
+            }
+          }
+        ],
+        "name": "ThreadPosted"
+      },
+      {
+        "fields": [
+          {
+            "name": "_0",
+            "type": {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "ContentId"
+              ]
+            }
+          }
+        ],
+        "name": "ThreadDeleted"
+      },
+      {
+        "fields": [
+          {
+            "name": "_0",
+            "type": {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "ContentId"
+              ]
+            }
+          }
+        ],
+        "name": "CommentPosted"
+      },
+      {
+        "fields": [
+          {
+            "name": "_0",
+            "type": {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "ContentId"
+              ]
+            }
+          }
+        ],
+        "name": "CommentDeleted"
+      }
+    ]
+  },
+  {
+    "name": "CommunityStatus",
+    "type": "enum",
+    "variants": [
+      {
+        "fields": [],
+        "name": "PendingCreation"
+      },
+      {
+        "fields": [
+          {
+            "name": "_0",
+            "type": {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "u128"
+              ]
+            }
+          }
+        ],
+        "name": "WaitingTx"
+      },
+      {
+        "fields": [
+          {
+            "name": "_0",
+            "type": {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          }
+        ],
+        "name": "CreateFailed"
+      },
+      {
+        "fields": [],
+        "name": "Active"
+      },
+      {
+        "fields": [
+          {
+            "name": "_0",
+            "type": {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "u64"
+              ]
+            }
+          }
+        ],
+        "name": "Frozen"
+      },
+      {
+        "fields": [
+          {
+            "name": "_0",
+            "type": {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          }
+        ],
+        "name": "TokenIssued"
+      }
+    ]
+  },
+  {
+    "name": "CommunityMode",
+    "type": "enum",
+    "variants": [
+      {
+        "fields": [],
+        "name": "Public"
+      },
+      {
+        "fields": [],
+        "name": "InviteOnly"
+      },
+      {
+        "fields": [
+          {
+            "name": "_0",
+            "type": {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "u128"
+              ]
+            }
+          }
+        ],
+        "name": "PayToJoin"
+      }
+    ]
+  },
+  {
+    "fields": [
+      {
+        "name": "id",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "mode",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "CommunityMode"
+          ]
+        }
+      },
+      {
+        "name": "logo",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "name",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "slug",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "description",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "token_info",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "TokenMetadata"
+          ]
+        }
+      },
+      {
+        "name": "agent_contract",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "AccountId"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Option"
+          ]
+        }
+      },
+      {
+        "name": "prompt",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "platform_bnb_benefit",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "u64"
+          ]
+        }
+      },
+      {
+        "name": "creator_bnb_benefit",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "u64"
+          ]
+        }
+      },
+      {
+        "name": "creator",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "AccountId"
+          ]
+        }
+      },
+      {
+        "name": "agent_pubkey",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "AccountId"
+          ]
+        }
+      },
+      {
+        "name": "llm_vendor",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "LlmVendor"
+          ]
+        }
+      },
+      {
+        "name": "llm_assistant_id",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "status",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "CommunityStatus"
+          ]
+        }
+      },
+      {
+        "name": "created_time",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "i64"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "Community",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "id",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "community_name",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "title",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "content",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "u8"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      },
+      {
+        "name": "images",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      },
+      {
+        "name": "author",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "AccountId"
+          ]
+        }
+      },
+      {
+        "name": "mention",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "AccountId"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      },
+      {
+        "name": "llm_session_id",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "created_time",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "i64"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "Thread",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "id",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "content",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "u8"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      },
+      {
+        "name": "images",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      },
+      {
+        "name": "author",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "AccountId"
+          ]
+        }
+      },
+      {
+        "name": "mention",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "AccountId"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      },
+      {
+        "name": "reply_to",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Option"
+          ]
+        }
+      },
+      {
+        "name": "created_time",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "i64"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "Comment",
+    "type": "struct"
+  },
+  {
+    "generics": [],
+    "name": "AccountId",
+    "target": {
+      "generic_args": [],
+      "kind": "Path",
+      "path": [
+        "H160"
+      ]
+    },
+    "type": "type_alias"
+  },
+  {
+    "fields": [
+      {
+        "name": "_0",
+        "type": {
+          "elem": {
+            "generic_args": [],
+            "kind": "Path",
+            "path": [
+              "u8"
+            ]
+          },
+          "kind": "Array",
+          "len": 20
+        }
+      }
+    ],
+    "generics": [],
+    "name": "H160",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "nonce",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "u64"
+          ]
+        }
+      },
+      {
+        "name": "address",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "H160"
+          ]
+        }
+      },
+      {
+        "name": "last_transfer_block",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "u64"
+          ]
+        }
+      },
+      {
+        "name": "alias",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Option"
+          ]
+        }
+      },
+      {
+        "name": "last_post_at",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "u64"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "Account",
+    "type": "struct"
+  },
+  {
+    "name": "AccountData",
+    "type": "enum",
+    "variants": [
+      {
+        "fields": [
+          {
+            "name": "_0",
+            "type": {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "Account"
+              ]
+            }
+          }
+        ],
+        "name": "Pubkey"
+      },
+      {
+        "fields": [
+          {
+            "name": "_0",
+            "type": {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "AccountId"
+              ]
+            }
+          }
+        ],
+        "name": "AliasOf"
+      }
+    ]
+  },
+  {
+    "fields": [
+      {
+        "name": "name",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "symbol",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "total_issuance",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "u128"
+          ]
+        }
+      },
+      {
+        "name": "decimals",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "u8"
+          ]
+        }
+      },
+      {
+        "name": "new_issue",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "bool"
+          ]
+        }
+      },
+      {
+        "name": "contract",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "AccountId"
+          ]
+        }
+      },
+      {
+        "name": "image",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Option"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "TokenMetadata",
+    "type": "struct"
+  },
+  {
+    "name": "LlmVendor",
+    "type": "enum",
+    "variants": [
+      {
+        "fields": [
+          {
+            "name": "key",
+            "type": {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          }
+        ],
+        "name": "OpenAI"
+      },
+      {
+        "fields": [
+          {
+            "name": "key",
+            "type": {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          },
+          {
+            "name": "host",
+            "type": {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          }
+        ],
+        "name": "DeepSeek"
+      }
+    ]
+  },
+  {
+    "fields": [
+      {
+        "name": "_0",
+        "type": {
+          "elem": {
+            "generic_args": [],
+            "kind": "Path",
+            "path": [
+              "u8"
+            ]
+          },
+          "kind": "Array",
+          "len": 65
+        }
+      }
+    ],
+    "generics": [],
+    "name": "EcdsaSignature",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "signature",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "S"
+          ]
+        }
+      },
+      {
+        "name": "signer",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "AccountId"
+          ]
+        }
+      },
+      {
+        "name": "nonce",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "u64"
+          ]
+        }
+      },
+      {
+        "name": "payload",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "T"
+          ]
+        }
+      }
+    ],
+    "generics": [
+      "T",
+      "S"
+    ],
+    "name": "Args",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "name",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "mode",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "CommunityMode"
+          ]
+        }
+      },
+      {
+        "name": "logo",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "token",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "TokenMetadataArg"
+          ]
+        }
+      },
+      {
+        "name": "slug",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "description",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "prompt",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "llm_name",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "llm_api_host",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Option"
+          ]
+        }
+      },
+      {
+        "name": "llm_key",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Option"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "CreateCommunityArg",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "name",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "symbol",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "total_issuance",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "u128"
+          ]
+        }
+      },
+      {
+        "name": "decimals",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "u8"
+          ]
+        }
+      },
+      {
+        "name": "new_issue",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "bool"
+          ]
+        }
+      },
+      {
+        "name": "contract",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Option"
+          ]
+        }
+      },
+      {
+        "name": "image",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Option"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "TokenMetadataArg",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "community",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "tx",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "ActivateCommunityArg",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "community",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "tx",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "PaysFeeArg",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "community",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "title",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "content",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "u8"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      },
+      {
+        "name": "images",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      },
+      {
+        "name": "mention",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "AccountId"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "PostThreadArg",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "community_id",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "CommunityId"
+          ]
+        }
+      },
+      {
+        "name": "tx",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "GenerateInviteTicketArgs",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "community",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "invitee",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "AccountId"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "InviteUserArgs",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "thread",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "ContentId"
+          ]
+        }
+      },
+      {
+        "name": "content",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "u8"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      },
+      {
+        "name": "images",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "String"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      },
+      {
+        "name": "mention",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "AccountId"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      },
+      {
+        "name": "reply_to",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "ContentId"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Option"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "PostCommentArg",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "alias",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "SetAliasArg",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "community",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "mode",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "CommunityMode"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "SetModeArg",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "community",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "logo",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "description",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "slug",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "mode",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "CommunityMode"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "SetCommunityArg",
+    "type": "struct"
+  },
+  {
+    "fields": [
+      {
+        "name": "payload",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "u8"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      },
+      {
+        "name": "signature",
+        "type": {
+          "generic_args": [
+            {
+              "generic_args": [],
+              "kind": "Path",
+              "path": [
+                "u8"
+              ]
+            }
+          ],
+          "kind": "Path",
+          "path": [
+            "Vec"
+          ]
+        }
+      },
+      {
+        "name": "agent_contract",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "AccountId"
+          ]
+        }
+      },
+      {
+        "name": "token_symbol",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "String"
+          ]
+        }
+      },
+      {
+        "name": "token_contract",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "AccountId"
+          ]
+        }
+      },
+      {
+        "name": "withdrawed",
+        "type": {
+          "generic_args": [],
+          "kind": "Path",
+          "path": [
+            "bool"
+          ]
+        }
+      }
+    ],
+    "generics": [],
+    "name": "RewardPayload",
+    "type": "struct"
+  }
+]

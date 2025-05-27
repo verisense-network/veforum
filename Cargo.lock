@@ -1209,6 +1209,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "fs2"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9564fc758e15025b46aa6643b1b77d047d1a56a1aea6e01002ac0c7026876213"
+dependencies = [
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "funty"
 version = "2.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4306,17 +4316,20 @@ dependencies = [
 
 [[package]]
 name = "vrs-core-macros"
-version = "0.0.4"
-source = "git+https://github.com/verisense-network/vrs-core-sdk.git#c287a611e9fa57031206a063ba8a08d76c91020b"
+version = "0.1.0"
+source = "git+https://github.com/verisense-network/vrs-core-sdk.git?branch=json-interface#685dc729d1e76bba30741e7434eb66b90d0b8896"
 dependencies = [
+ "fs2",
  "quote",
+ "serde",
+ "serde_json",
  "syn 2.0.100",
 ]
 
 [[package]]
 name = "vrs-core-sdk"
-version = "0.0.4"
-source = "git+https://github.com/verisense-network/vrs-core-sdk.git#c287a611e9fa57031206a063ba8a08d76c91020b"
+version = "0.1.0"
+source = "git+https://github.com/verisense-network/vrs-core-sdk.git?branch=json-interface#685dc729d1e76bba30741e7434eb66b90d0b8896"
 dependencies = [
  "parity-scale-codec",
  "sp-core",
