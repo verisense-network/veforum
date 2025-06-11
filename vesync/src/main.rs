@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         let events = events.unwrap();
         if events.is_empty() {
-            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
             continue;
         }
         for (id, event) in events.iter() {
@@ -44,12 +44,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 indexer::index_event(&origin, &db, &indexer, &nucleus_id, *id, *event).await
             {
                 eprintln!("index event failed: {:?}", e);
-                tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                tokio::time::sleep(std::time::Duration::from_secs(5)).await;
                 break;
             }
         }
         if events.len() < 1000 {
-            tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+            tokio::time::sleep(std::time::Duration::from_secs(5)).await;
         }
     }
 }
