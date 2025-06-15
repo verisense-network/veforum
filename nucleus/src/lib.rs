@@ -100,7 +100,7 @@ pub(crate) fn allocate_thread_id(community_id: CommunityId) -> Result<ContentId,
     let end_key = start_key | u64::MAX as u128;
     let r = storage::search(&end_key.to_be_bytes()[..], storage::Direction::Reverse)
         .map_err(|e| e.to_string())?
-        .filter(|(k, _)| k.starts_with(&start_key.to_be_bytes()[..=8]))
+        .filter(|(k, _)| k.starts_with(&start_key.to_be_bytes()[..8]))
         .map(|(k, _)| trie::to_content_id(&k))
         .transpose()?
         .unwrap_or((community_id as u128) << 64);
@@ -115,7 +115,7 @@ pub(crate) fn allocate_comment_id(thread_id: ContentId) -> Result<ContentId, Str
     let end_key = start_key | u32::MAX as u128;
     let r = storage::search(&end_key.to_be_bytes()[..], storage::Direction::Reverse)
         .map_err(|e| e.to_string())?
-        .filter(|(k, _)| k.starts_with(&start_key.to_be_bytes()[..=12]))
+        .filter(|(k, _)| k.starts_with(&start_key.to_be_bytes()[..12]))
         .map(|(k, _)| trie::to_content_id(&k))
         .transpose()?
         .unwrap_or(thread_id);
