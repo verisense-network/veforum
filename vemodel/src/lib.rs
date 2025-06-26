@@ -1,15 +1,11 @@
-use parity_scale_codec::{Decode, Encode};
+use scale_info::TypeInfo;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use vrs_core_sdk::export;
+use vrs_core_sdk::codec::{Decode, Encode};
 
-#[export]
 pub type CommunityId = u32;
-#[export]
 pub type EventId = u64;
-#[export]
 pub type RewardId = u64;
-#[export]
 pub type ContentId = u128;
 
 pub fn is_comment(content_id: ContentId) -> bool {
@@ -24,8 +20,7 @@ pub fn get_belongs_to(content_id: ContentId) -> CommunityId {
     (content_id >> 64) as CommunityId
 }
 
-#[derive(Debug, Decode, Encode, Deserialize, Serialize, Clone, Copy)]
-#[export]
+#[derive(Debug, Decode, Encode, Deserialize, Serialize, Clone, Copy, TypeInfo)]
 pub enum Event {
     #[codec(index = 0)]
     CommunityCreated(CommunityId),
@@ -41,8 +36,7 @@ pub enum Event {
     CommentDeleted(ContentId),
 }
 
-#[derive(Debug, Decode, Clone, Encode, Deserialize, Serialize, Eq, PartialEq)]
-#[export]
+#[derive(Debug, Decode, Clone, Encode, Deserialize, Serialize, Eq, PartialEq, TypeInfo)]
 pub enum CommunityStatus {
     PendingCreation,
     WaitingTx(u128),
@@ -52,16 +46,14 @@ pub enum CommunityStatus {
     TokenIssued(String),
 }
 
-#[derive(Debug, Decode, Clone, Encode, Deserialize, Serialize, Eq, PartialEq)]
-#[export]
+#[derive(Debug, Decode, Clone, Encode, Deserialize, Serialize, Eq, PartialEq, TypeInfo)]
 pub enum CommunityMode {
     Public,
     InviteOnly,
     PayToJoin(u128),
 }
 
-#[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-#[export]
+#[derive(Debug, Decode, Encode, Deserialize, Serialize, TypeInfo)]
 pub struct Community {
     pub id: String,
     pub mode: CommunityMode,
@@ -108,8 +100,7 @@ impl Community {
     }
 }
 
-#[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-#[export]
+#[derive(Debug, Decode, Encode, Deserialize, Serialize, TypeInfo)]
 pub struct Thread {
     pub id: String,
     pub community_name: String,
@@ -134,7 +125,6 @@ impl Thread {
 }
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-#[export]
 pub struct Comment {
     pub id: String,
     pub content: Vec<u8>,
@@ -161,11 +151,9 @@ impl Comment {
     }
 }
 
-#[export]
 pub type AccountId = H160;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq, Decode, Encode)]
-#[export]
+#[derive(Debug, Clone, Copy, Eq, PartialEq, Decode, Encode, TypeInfo)]
 pub struct H160(pub [u8; 20]);
 
 impl H160 {
@@ -258,8 +246,7 @@ impl serde::Serialize for H160 {
     }
 }
 
-#[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
-#[export]
+#[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize, TypeInfo)]
 pub struct Account {
     pub nonce: u64,
     pub address: H160,
@@ -268,8 +255,7 @@ pub struct Account {
     pub last_post_at: u64,
 }
 
-#[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
-#[export]
+#[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize, TypeInfo)]
 pub enum AccountData {
     Pubkey(Account),
     AliasOf(AccountId),
@@ -299,8 +285,7 @@ impl Account {
     }
 }
 
-#[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
-#[export]
+#[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize, TypeInfo)]
 pub struct TokenMetadata {
     pub name: String,
     pub symbol: String,
@@ -311,8 +296,7 @@ pub struct TokenMetadata {
     pub image: Option<String>,
 }
 
-#[derive(Debug, Clone, Decode, Encode, Serialize, Deserialize)]
-#[export]
+#[derive(Debug, Clone, Decode, Encode, Serialize, Deserialize, TypeInfo)]
 pub enum LlmVendor {
     OpenAI { key: String },
     DeepSeek { key: String, host: String },
@@ -330,16 +314,15 @@ impl LlmVendor {
 #[cfg(feature = "crypto")]
 pub mod crypto {
     use parity_scale_codec::{Decode, Encode};
+    use scale_info::TypeInfo;
     use secp256k1::{
         ecdsa::{RecoverableSignature, RecoveryId},
         Message, Secp256k1,
     };
     use tiny_keccak::{Hasher, Keccak};
-    use vrs_core_sdk::export;
 
     /// SECP256k1 ECDSA signature in RSV format, V should be either `0/1` or `27/28`.
-    #[derive(Debug, Clone, Copy, Decode, Encode)]
-    #[export]
+    #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo)]
     pub struct EcdsaSignature(pub [u8; 65]);
 
     impl EcdsaSignature {
@@ -438,8 +421,7 @@ pub mod args {
     const TOKEN_REGEX: &'static str = r"^[a-zA-Z0-9]{3,8}$";
     const NAME_REGEX: &'static str = r"^[\p{L}\p{N}_-]{3,30}$";
 
-    #[derive(Debug, Clone, Decode, Encode)]
-    #[export]
+    #[derive(Debug, Clone, Decode, Encode, TypeInfo)]
     pub struct Args<T, S> {
         pub signature: S,
         pub signer: AccountId,
@@ -447,8 +429,7 @@ pub mod args {
         pub payload: T,
     }
 
-    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-    #[export]
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize, TypeInfo)]
     pub struct CreateCommunityArg {
         pub name: String,
         pub mode: CommunityMode,
@@ -462,8 +443,7 @@ pub mod args {
         pub llm_key: Option<String>,
     }
 
-    #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize)]
-    #[export]
+    #[derive(Debug, Clone, Decode, Encode, Deserialize, Serialize, TypeInfo)]
     pub struct TokenMetadataArg {
         pub name: String,
         pub symbol: String,
@@ -504,22 +484,19 @@ pub mod args {
         }
     }
 
-    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-    #[export]
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize, TypeInfo)]
     pub struct ActivateCommunityArg {
         pub community: String,
         pub tx: String,
     }
 
-    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-    #[export]
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize, TypeInfo)]
     pub struct PaysFeeArg {
         pub community: String,
         pub tx: String,
     }
 
-    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-    #[export]
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize, TypeInfo)]
     pub struct PostThreadArg {
         pub community: String,
         pub title: String,
@@ -528,22 +505,19 @@ pub mod args {
         pub mention: Vec<AccountId>,
     }
 
-    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-    #[export]
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize, TypeInfo)]
     pub struct GenerateInviteTicketArgs {
         pub community_id: CommunityId,
         pub tx: String,
     }
 
-    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-    #[export]
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize, TypeInfo)]
     pub struct InviteUserArgs {
         pub community: String,
         pub invitee: AccountId,
     }
 
-    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-    #[export]
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize, TypeInfo)]
     pub struct PostCommentArg {
         pub thread: ContentId,
         pub content: Vec<u8>,
@@ -552,8 +526,7 @@ pub mod args {
         pub reply_to: Option<ContentId>,
     }
 
-    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-    #[export]
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize, TypeInfo)]
     pub struct SetAliasArg {
         pub alias: String,
     }
@@ -567,15 +540,13 @@ pub mod args {
         }
     }
 
-    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-    #[export]
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize, TypeInfo)]
     pub struct SetModeArg {
         pub community: String,
         pub mode: CommunityMode,
     }
 
-    #[derive(Debug, Decode, Encode, Deserialize, Serialize)]
-    #[export]
+    #[derive(Debug, Decode, Encode, Deserialize, Serialize, TypeInfo)]
     pub struct SetCommunityArg {
         pub community: String,
         pub logo: String,
@@ -585,8 +556,7 @@ pub mod args {
     }
 }
 
-#[derive(Debug, Clone, Decode, Encode)]
-#[export]
+#[derive(Debug, Clone, Decode, Encode, TypeInfo)]
 pub struct RewardPayload {
     pub payload: Vec<u8>,
     pub signature: Vec<u8>,
