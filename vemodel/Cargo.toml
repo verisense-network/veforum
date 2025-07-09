@@ -7,7 +7,7 @@ edition = "2021"
 parity-scale-codec = { workspace = true }
 scale-info = { workspace = true }
 serde = { workspace = true }
-vrs-core-sdk = { workspace = true }
+vrs-core-sdk = { workspace = true, default-features = false }
 sha2 = { version = "0.10", default-features = false }
 hex = "0.4"
 regex = "1.11"
