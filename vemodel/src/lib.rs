@@ -3,9 +3,13 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use vrs_core_sdk::codec::{Decode, Encode};
 
+
 pub type CommunityId = u32;
+
 pub type EventId = u64;
+
 pub type RewardId = u64;
+
 pub type ContentId = u128;
 
 pub fn is_comment(content_id: ContentId) -> bool {
@@ -99,6 +103,7 @@ impl Community {
         }
     }
 }
+
 
 #[derive(Debug, Decode, Encode, Deserialize, Serialize, TypeInfo)]
 pub struct Thread {
@@ -320,6 +325,7 @@ pub mod crypto {
         Message, Secp256k1,
     };
     use tiny_keccak::{Hasher, Keccak};
+ 
 
     /// SECP256k1 ECDSA signature in RSV format, V should be either `0/1` or `27/28`.
     #[derive(Debug, Clone, Copy, Decode, Encode, TypeInfo)]

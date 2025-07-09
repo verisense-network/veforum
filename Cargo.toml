@@ -12,3 +12,4 @@ parity-scale-codec = { version = "3.6", features = ["derive"] }
 scale-info = { version = "2.11", features = ["derive", "serde"] }
 serde = { version = "1.0", features = ["derive"] }
 vrs-core-sdk = { version = "0.2", default-features = false }
+
